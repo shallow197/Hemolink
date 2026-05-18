@@ -1,20 +1,16 @@
 // =====================================================================
 // Login.jsx — Page de connexion
 // =====================================================================
-// Formulaire email/mot de passe + 3 "quick logins" pour la démo.
-// Après connexion réussie, redirection vers l'espace approprié.
-// =====================================================================
 
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import Logo from '../../components/Logo.jsx';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
-// --- Comptes de démo cliquables (gain de temps pour la soutenance) ---
-// Cliquer sur un bouton remplit automatiquement email/mot de passe.
 const QUICK_LOGINS = [
-  { label: 'Donneuse Aminata (O-)',  email: 'aminata@example.sn',   role: 'donneur' },
-  { label: 'Staff CHNU Fann',         email: 'fann@hemolink.sn',     role: 'hopital' },
-  { label: 'CNTS Dakar',              email: 'cnts@hemolink.sn',     role: 'cnts' },
+  { label: 'Donneuse Aminata (O-)', email: 'aminata@example.sn', role: 'donneur' },
+  { label: 'Staff CHNU Fann', email: 'fann@hemolink.sn', role: 'hopital' },
+  { label: 'CNTS Dakar', email: 'cnts@hemolink.sn', role: 'cnts' },
 ];
 
 export default function Login() {
@@ -44,86 +40,77 @@ export default function Login() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-md">
-        <h1 className="text-2xl font-bold text-gray-900">Connexion</h1>
-        <p className="mt-1 text-sm text-gray-500">Accédez à votre espace HemoLink.</p>
+    <div className="mx-auto max-w-lg">
+      <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-card">
+        <div className="bg-gradient-to-br from-brand-navy to-brand-navy-light px-8 py-8 text-center text-white">
+          <Logo className="mx-auto h-14 w-14" />
+          <h1 className="mt-4 font-display text-2xl font-bold">Connexion</h1>
+          <p className="mt-1 text-sm text-slate-300">Accédez à votre espace HemoLink</p>
+        </div>
 
-        <form className="mt-6 space-y-4" onSubmit={submit}>
-          <label className="block text-sm font-medium text-gray-700">
-            Adresse email
-            <input
-              type="email"
-              required
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10"
-              placeholder="votre@email.com"
-            />
-          </label>
-          <label className="block text-sm font-medium text-gray-700">
-            Mot de passe
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10"
-              placeholder="••••••••"
-            />
-          </label>
+        <div className="p-8">
+          <form className="space-y-4" onSubmit={submit}>
+            <label className="block text-sm font-semibold text-brand-navy">
+              Adresse email
+              <input
+                type="email"
+                required
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="hl-input"
+                placeholder="votre@email.com"
+              />
+            </label>
+            <label className="block text-sm font-semibold text-brand-navy">
+              Mot de passe
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="hl-input"
+                placeholder="••••••••"
+              />
+            </label>
 
-          {err && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {err}
+            {err && <p className="hl-alert-error">{err}</p>}
+
+            <button type="submit" disabled={loading} className="hl-btn-primary w-full py-3">
+              {loading ? 'Connexion…' : 'Se connecter'}
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-slate-600">
+            Pas encore inscrit ?{' '}
+            <Link to="/register" className="font-semibold text-blood hover:text-blood-dark">
+              Créer un compte donneur
+            </Link>
+          </p>
+
+          <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Comptes démo — mot de passe : Hemolink2026!
             </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-blood py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blood-dark disabled:opacity-60"
-          >
-            {loading ? 'Connexion…' : 'Se connecter'}
-          </button>
-        </form>
-
-        <p className="mt-5 text-center text-sm text-gray-600">
-          Pas encore inscrit ?{' '}
-          <Link to="/register" className="font-medium text-blood hover:text-blood-dark">Créer un compte donneur</Link>
-        </p>
-
-        <div className="mt-6 rounded-xl border border-gray-100 bg-slate-50 p-4">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Comptes de démo — mot de passe : Hemolink2026!</p>
-          <div className="flex flex-col gap-1">
-            {QUICK_LOGINS.map((q) => (
-              <button
-                key={q.email}
-                type="button"
-                onClick={() => { setEmail(q.email); setPassword('Hemolink2026!'); }}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
-              >
-                <span className="font-medium text-gray-900">{q.label}</span>
-                <span className="ml-2 text-gray-400">{q.email}</span>
-              </button>
-            ))}
+            <div className="flex flex-col gap-2">
+              {QUICK_LOGINS.map((q) => (
+                <button
+                  key={q.email}
+                  type="button"
+                  onClick={() => {
+                    setEmail(q.email);
+                    setPassword('Hemolink2026!');
+                  }}
+                  className="rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs transition-colors hover:border-blood/30 hover:bg-blood-light/50"
+                >
+                  <span className="font-semibold text-brand-navy">{q.label}</span>
+                  <span className="ml-2 text-slate-400">{q.email}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-// =====================================================================
-// EXPLICATION POUR LA SOUTENANCE (15 secondes) :
-// ---------------------------------------------------------------------
-// Page très simple côté code, mais avec une astuce qui aide énormément
-// la démo : les "Comptes de démo" (3 boutons) qui pré-remplissent
-// email + mot de passe en 1 clic. Ça évite de retaper Hemolink2026!
-// devant le jury. Après login réussi, on redirige selon le rôle :
-//   • donneur → /mon-espace
-//   • staff   → /staff
-// Si l'utilisateur arrivait depuis une URL spécifique (ex: /staff/alertes/3)
-// avant d'être déconnecté, on le ramène à cette URL (location.state.from).
-// =====================================================================

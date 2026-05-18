@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PageHeader, FilterBar, DataTable, BloodGroupBadge, Modal } from '../../components/ui.jsx';
 import { fetchJson } from '../../api';
 import { usePoll } from '../../hooks/usePoll.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
@@ -57,25 +58,23 @@ export default function Donneurs() {
   const enAttente = rows.filter((r) => r.en_attente_validation).length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Donneurs</h2>
-          <p className="text-sm text-gray-500">
-            Registre des donneurs inscrits
-            {enAttente > 0 && peutValider && (
-              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                {enAttente} en attente de validation
-              </span>
-            )}
-          </p>
-        </div>
-        <button type="button" onClick={() => setModal(true)} className="rounded-xl bg-blood px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blood-dark">
-          + Ajouter un donneur
-        </button>
-      </div>
+    <div className="hl-page">
+      <PageHeader
+        title="Donneurs"
+        subtitle="Registre des donneurs inscrits"
+        badge={
+          enAttente > 0 && peutValider ? (
+            <span className="hl-badge bg-amber-100 text-amber-900 ring-1 ring-amber-200/80">{enAttente} en attente</span>
+          ) : null
+        }
+        actions={
+          <button type="button" onClick={() => setModal(true)} className="hl-btn-primary">
+            + Ajouter un donneur
+          </button>
+        }
+      />
 
-      <div className="flex flex-wrap gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <FilterBar>
         <select value={filtreGs} onChange={(e) => setFiltreGs(e.target.value)} className={filterCls}>
           <option value="">Tous les groupes</option>
           {GROUPES.map((g) => <option key={g} value={g}>{g}</option>)}
@@ -91,11 +90,11 @@ export default function Donneurs() {
           <option value="attente">En attente</option>
           <option value="valide">Validés</option>
         </select>
-      </div>
+      </FilterBar>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-gray-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <DataTable empty={!rows.length} emptyMessage="Aucun donneur">
+        <table className="hl-table min-w-full">
+          <thead>
             <tr>
               <th className="px-4 py-3">Nom</th>
               <th className="px-4 py-3">Groupe</th>
@@ -111,9 +110,7 @@ export default function Donneurs() {
               <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
                 <td className="px-4 py-3 font-medium text-gray-900">{d.prenom} {d.nom}</td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${d.groupe_sanguin?.endsWith('-') ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
-                    {d.groupe_sanguin}
-                  </span>
+                  <BloodGroupBadge group={d.groupe_sanguin} />
                 </td>
                 <td className="px-4 py-3 text-gray-600">{d.telephone}</td>
                 <td className="px-4 py-3 text-gray-500">{d.derniere_date_don ? new Date(d.derniere_date_don).toLocaleDateString('fr-FR') : '—'}</td>
@@ -122,7 +119,7 @@ export default function Donneurs() {
                 {peutValider && (
                   <td className="px-4 py-3">
                     {d.en_attente_validation && (
-                      <button onClick={() => valider(d.id)} className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700">
+                      <button type="button" onClick={() => valider(d.id)} className="hl-btn-success px-3 py-1 text-xs">
                         Valider
                       </button>
                     )}
@@ -132,14 +129,10 @@ export default function Donneurs() {
             ))}
           </tbody>
         </table>
-        {!rows.length && <p className="p-6 text-center text-sm text-gray-400">Aucun donneur</p>}
-      </div>
+      </DataTable>
 
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gray-100 bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-gray-900">Nouveau donneur</h3>
-            <form className="mt-4 space-y-3" onSubmit={submit}>
+      <Modal open={modal} onClose={() => setModal(false)} title="Nouveau donneur">
+            <form className="space-y-3" onSubmit={submit}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} required />
                 <Field label="Prénom" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} required />
@@ -167,34 +160,35 @@ export default function Donneurs() {
                 Marquer en attente de validation
               </label>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setModal(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Annuler</button>
-                <button type="submit" className="rounded-lg bg-blood px-4 py-2 text-sm font-semibold text-white hover:bg-blood-dark">Enregistrer</button>
+                <button type="button" onClick={() => setModal(false)} className="hl-btn-danger-ghost">
+                  Annuler
+                </button>
+                <button type="submit" className="hl-btn-primary">
+                  Enregistrer
+                </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }
 
-const filterCls = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blood focus:ring-1 focus:ring-blood/10';
+const filterCls = 'hl-filter-input';
 
 function Field({ label, value, onChange, type = 'text', required }) {
   return (
-    <label className="block text-sm font-medium text-gray-700">
+    <label className="hl-label-field">
       {label}
-      <input type={type} required={required} value={value ?? ''} onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10" />
+      <input type={type} required={required} value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="hl-input" />
     </label>
   );
 }
 function Select({ label, value, onChange, options }) {
   const items = options.map((o) => (typeof o === 'string' ? { v: o, l: o } : o));
   return (
-    <label className="block text-sm font-medium text-gray-700">
+    <label className="hl-label-field">
       {label}
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10">
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="hl-input">
         {items.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
       </select>
     </label>

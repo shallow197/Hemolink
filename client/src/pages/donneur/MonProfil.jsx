@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PageHeader, Panel } from '../../components/ui.jsx';
 import { fetchJson } from '../../api';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
@@ -70,9 +71,9 @@ export default function MonProfil() {
   if (!form) return <p className="text-gray-500">Chargement…</p>;
 
   return (
-    <div className="space-y-6">
+    <div className="hl-page">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Mon profil</h2>
+        <h1 className="hl-page-title">Mon profil</h1>
         <p className="text-sm text-gray-500">
           {user?.email} · Groupe sanguin{' '}
           <span className="font-semibold text-blood">{data?.donneur?.groupe_sanguin}</span>
@@ -80,15 +81,14 @@ export default function MonProfil() {
       </div>
 
       {data?.donneur?.en_attente_validation && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <p className="hl-alert-warning">
           Votre compte est en attente de validation par le CNTS. Vous pouvez modifier votre profil mais
-          vous ne recevrez pas encore d'alertes.
-        </div>
+          vous ne recevrez pas encore d&apos;alertes.
+        </p>
       )}
 
       <form onSubmit={submit} className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-gray-900">Identité</h3>
+        <Panel title="Identité">
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Prénom" value={form.prenom} onChange={(v) => set('prenom', v)} />
@@ -104,10 +104,9 @@ export default function MonProfil() {
             ]} />
             <Field label="Poids (kg)" type="number" value={form.poids_kg} onChange={(v) => set('poids_kg', v)} />
           </div>
-        </section>
+        </Panel>
 
-        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-gray-900">Localisation & disponibilité</h3>
+        <Panel title="Localisation & disponibilité">
           <div className="space-y-3">
             <Field label="Ville" value={form.ville} onChange={(v) => set('ville', v)} />
             <Field label="Quartier" value={form.quartier} onChange={(v) => set('quartier', v)} />
@@ -133,12 +132,12 @@ export default function MonProfil() {
               <span>Je suis disponible pour recevoir des alertes</span>
             </label>
           </div>
-        </section>
+        </Panel>
 
         <div className="md:col-span-2">
-          {err && <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
-          {msg && <p className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{msg}</p>}
-          <button type="submit" disabled={saving} className="rounded-xl bg-blood px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blood-dark disabled:opacity-60">
+          {err && <p className="hl-alert-error mb-3">{err}</p>}
+          {msg && <p className="mb-3 rounded-xl border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{msg}</p>}
+          <button type="submit" disabled={saving} className="hl-btn-primary disabled:opacity-60">
             {saving ? 'Enregistrement…' : 'Enregistrer les modifications'}
           </button>
         </div>
@@ -149,27 +148,18 @@ export default function MonProfil() {
 
 function Field({ label, value, onChange, type = 'text' }) {
   return (
-    <label className="block text-sm font-medium text-gray-700">
+    <label className="hl-label-field">
       {label}
-      <input
-        type={type}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10"
-      />
+      <input type={type} value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="hl-input" />
     </label>
   );
 }
 
 function Select({ label, value, onChange, options }) {
   return (
-    <label className="block text-sm font-medium text-gray-700">
+    <label className="hl-label-field">
       {label}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10"
-      >
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="hl-input">
         {options.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
       </select>
     </label>

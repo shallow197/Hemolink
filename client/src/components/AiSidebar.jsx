@@ -50,33 +50,33 @@ export default function AiSidebar({ open, onToggle }) {
 
   return (
     <aside
-      className={`fixed right-0 top-0 z-40 flex h-full flex-col border-l border-gray-200 bg-white shadow-xl transition-all duration-300 ${
-        open ? 'w-full sm:w-[380px]' : 'w-0 overflow-hidden border-0'
+      className={`fixed right-0 top-0 z-40 flex h-full flex-col border-l border-slate-200/80 bg-white shadow-2xl transition-all duration-300 ${
+        open ? 'w-full sm:w-[400px]' : 'w-0 overflow-hidden border-0'
       }`}
     >
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-brand-navy to-brand-navy-light px-4 py-4 text-white">
           <div>
-            <p className="text-sm font-semibold text-gray-900">Assistant IA HemoLink</p>
-            <p className="text-xs text-gray-400">Groq · données en direct</p>
+            <p className="font-display text-sm font-bold">Assistant IA HemoLink</p>
+            <p className="text-xs text-slate-300">Groq · données en direct</p>
           </div>
           <button
             type="button"
             onClick={onToggle}
-            className="rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+            className="rounded-lg border border-white/20 bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20"
           >
             Fermer
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-2 border-b border-gray-100 px-3 py-2">
+        <div className="flex flex-wrap gap-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3">
           {SUGGESTIONS.map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => send(s)}
               disabled={loading}
-              className="rounded-full border border-red-100 bg-red-50 px-2 py-1 text-[11px] text-blood hover:bg-red-100 disabled:opacity-50"
+              className="rounded-full border border-blood/20 bg-blood-light px-2.5 py-1 text-[11px] font-medium text-blood hover:bg-blood/10 disabled:opacity-50"
             >
               {s}
             </button>
@@ -110,13 +110,13 @@ export default function AiSidebar({ open, onToggle }) {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10"
+              className="hl-input flex-1"
               placeholder="Votre question…"
             />
             <button
               type="submit"
               disabled={loading}
-              className="rounded-lg bg-blood px-3 py-2 text-sm font-medium text-white hover:bg-blood-dark disabled:opacity-50"
+              className="hl-btn-primary shrink-0 px-4 disabled:opacity-50"
             >
               Envoyer
             </button>

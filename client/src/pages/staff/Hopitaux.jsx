@@ -67,17 +67,17 @@ export default function Hopitaux() {
     : list;
 
   return (
-    <div className="space-y-6">
+    <div className="hl-page">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Hôpitaux & stocks</h2>
-        <p className="text-sm text-gray-500">Gestion des stocks par groupe sanguin et lancement d'alertes</p>
+        <h1 className="hl-page-title">Hôpitaux & stocks</h1>
+        <p className="hl-page-subtitle">Gestion des stocks par groupe sanguin et lancement d&apos;alertes</p>
       </div>
 
       <div className="space-y-4">
         {sorted.map((h) => {
           const isMine = user?.role === 'hopital' && user.hopital_id === h.id;
           return (
-            <article key={h.id} className={`rounded-2xl border bg-white p-5 shadow-sm ${isMine ? 'border-blood/30 ring-1 ring-blood/10' : 'border-gray-100'}`}>
+            <article key={h.id} className={`hl-hopital-card hl-card-body ${isMine ? 'hl-hopital-card-mine' : ''}`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -94,7 +94,7 @@ export default function Hopitaux() {
                       setForm({ groupe_sanguin: 'O+', niveau_urgence: 'urgent', message: '', rayon_km: 25, poches_necessaires: 1 });
                       setModal(h);
                     }}
-                    className="rounded-xl bg-blood px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blood-dark"
+                    className="hl-btn-primary"
                   >
                     Lancer une alerte
                   </button>

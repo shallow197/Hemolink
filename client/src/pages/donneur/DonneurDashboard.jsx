@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { PageHeader } from '../../components/ui.jsx';
 import { fetchJson } from '../../api';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
@@ -21,22 +22,16 @@ export default function DonneurDashboard() {
   const alertesEnAttente = mes.filter((a) => a.reponse === 'pas_repondu' && a.statut === 'en_cours');
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">
-          Bienvenue, {data?.donneur?.prenom || user?.email}
-        </h2>
-        <p className="text-sm text-gray-500">Votre tableau de bord donneur HemoLink</p>
-      </div>
+    <div className="hl-page">
+      <PageHeader
+        title={`Bienvenue, ${data?.donneur?.prenom || user?.email}`}
+        subtitle="Votre tableau de bord donneur HemoLink"
+      />
 
-      {err && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {err}
-        </div>
-      )}
+      {err && <p className="hl-alert-error">{err}</p>}
 
       {alertesEnAttente.length > 0 && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm ring-1 ring-red-100">
+        <div className="rounded-2xl border border-blood/30 bg-gradient-to-br from-blood-light to-white p-6 shadow-glow ring-1 ring-blood/20">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-blood">Alerte en attente de votre réponse</p>
@@ -47,7 +42,7 @@ export default function DonneurDashboard() {
                 Un hôpital cherche du sang {alertesEnAttente[0].groupe_sanguin} — votre groupe {data?.donneur?.groupe_sanguin} est compatible.
               </p>
             </div>
-            <Link to="/mon-espace/alertes" className="flex-shrink-0 rounded-xl bg-blood px-4 py-2 text-sm font-semibold text-white hover:bg-blood-dark">
+            <Link to="/mon-espace/alertes" className="hl-btn-primary flex-shrink-0">
               Voir →
             </Link>
           </div>
@@ -74,7 +69,7 @@ export default function DonneurDashboard() {
       </div>
 
       {data && !data.eligibilite.eligible && data.eligibilite.raisons?.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+        <div className="hl-alert-warning p-5">
           <p className="text-sm font-semibold text-amber-800">Pourquoi vous n'êtes pas éligible actuellement</p>
           <ul className="mt-2 space-y-1 text-sm text-amber-700">
             {data.eligibilite.raisons.map((r, i) => <li key={i}>· {r}</li>)}
@@ -82,7 +77,7 @@ export default function DonneurDashboard() {
         </div>
       )}
 
-      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <section className="hl-card hl-card-body">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">Mes alertes récentes</h3>
           <Link to="/mon-espace/alertes" className="text-xs font-medium text-blood hover:underline">Voir tout →</Link>
@@ -111,12 +106,12 @@ export default function DonneurDashboard() {
   );
 }
 
-function Card({ title, value, sub, accent = 'text-gray-900' }) {
+function Card({ title, value, sub, accent = 'text-brand-navy' }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{title}</p>
-      <p className={`mt-2 text-2xl font-bold ${accent}`}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
+    <div className="hl-card hl-card-body border-l-[3px] border-l-blood">
+      <p className="hl-kpi-label">{title}</p>
+      <p className={`hl-kpi-value text-2xl ${accent}`}>{value}</p>
+      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
     </div>
   );
 }
