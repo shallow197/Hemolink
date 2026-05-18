@@ -1,11 +1,25 @@
+// =====================================================================
+// MapSenegal.jsx — Carte interactive du Sénégal (Leaflet)
+// =====================================================================
+// Affiche trois couches superposées :
+//   • Hôpitaux (cercles bleus)
+//   • Alertes en cours (markers rouges clignotants)
+//   • Donneurs disponibles (cercles verts, en gras si compatibles
+//     avec une alerte active)
+// =====================================================================
+
 import { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap, Marker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+// --- Centre et zoom par défaut (centre approximatif du Sénégal) ---
 const center = [14.5, -15.5];
 const zoom = 7;
 
+// --- Petit hack technique : invalider la taille de la carte au montage --
+// Leaflet calcule mal la taille quand la carte est dans un onglet caché
+// ou un layout flex. invalidateSize() force le recalcul après 200ms.
 function ResizeFix() {
   const map = useMap();
   useEffect(() => {
@@ -15,6 +29,8 @@ function ResizeFix() {
 }
 
 export default function MapSenegal({ carte }) {
+  // --- Icône personnalisée pour les alertes (clignote via CSS) ---
+  // useMemo : on ne recrée l'icône qu'une seule fois (perf)
   const alertIcon = useMemo(
     () =>
       L.divIcon({
@@ -27,8 +43,10 @@ export default function MapSenegal({ carte }) {
     []
   );
 
+  // Set des donneurs compatibles avec une alerte active (lookup O(1))
   const compatSet = new Set(carte?.donneurs_compatibles_ids || []);
 
+  // Skeleton de chargement pendant que les données arrivent du serveur
   if (!carte) {
     return <div className="h-[380px] w-full animate-pulse rounded-xl bg-zinc-800" />;
   }
@@ -36,7 +54,11 @@ export default function MapSenegal({ carte }) {
   return (
     <MapContainer center={center} zoom={zoom} className="h-[380px] w-full rounded-xl z-0" scrollWheelZoom>
       <ResizeFix />
+
+      {/* --- COUCHE 1 : fond de carte OpenStreetMap (gratuit, open data) --- */}
       <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+      {/* --- COUCHE 2 : hôpitaux (cercles bleus avec popup) --- */}
       {carte.hopitaux?.map((h) => (
         <CircleMarker
           key={`h-${h.id}`}
@@ -51,6 +73,8 @@ export default function MapSenegal({ carte }) {
           </Popup>
         </CircleMarker>
       ))}
+
+      {/* --- COUCHE 3 : alertes actives (markers rouges clignotants) --- */}
       {carte.alertes_actives?.map((a) => (
         <Marker key={`a-${a.id}`} position={[Number(a.hop_lat), Number(a.hop_lng)]} icon={alertIcon}>
           <Popup>
@@ -62,6 +86,10 @@ export default function MapSenegal({ carte }) {
           </Popup>
         </Marker>
       ))}
+
+      {/* --- COUCHE 4 : donneurs (cercles verts) --- */}
+      {/* On filtre : pas de coordonnées, pas validé ou indisponible → on saute. */}
+      {/* Les donneurs compatibles avec une alerte sont affichés plus gros et plus foncés. */}
       {carte.donneurs?.map((d) => {
         if (!d.latitude || !d.longitude) return null;
         const ok = d.disponible && !d.en_attente_validation;
@@ -91,3 +119,17 @@ export default function MapSenegal({ carte }) {
     </MapContainer>
   );
 }
+
+// =====================================================================
+// EXPLICATION POUR LA SOUTENANCE (20 secondes) :
+// ---------------------------------------------------------------------
+// On utilise Leaflet (bibliothèque open-source légère) avec OpenStreetMap
+// comme fond de carte — pas de coût d'API contrairement à Google Maps.
+// Cette carte est l'élément le plus IMPACTANT visuellement : on voit
+// d'un coup d'œil la répartition des hôpitaux, des donneurs disponibles
+// et des alertes en cours. Les donneurs compatibles avec une alerte
+// active sont mis en évidence (plus gros, vert plus foncé) — c'est
+// l'algorithme du backend qui calcule cette liste (table COMPAT + rayon
+// Haversine) et la transmet via /api/dashboard/carte. Pour la démo, on
+// peut cliquer sur les markers : popup avec le détail.
+// =====================================================================

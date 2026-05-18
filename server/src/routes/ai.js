@@ -1,3 +1,15 @@
+// =====================================================================
+// ai.js — Assistant IA HemoLink (chat conversationnel sur les données)
+// =====================================================================
+// Pipeline en 4 étapes pour répondre à une question utilisateur :
+//   1. On envoie la question à Groq (Llama 3.3 70B) avec le schéma de DB
+//   2. L'IA renvoie soit du texte direct, soit un bloc ```sql ... ```
+//   3. Si SQL : on valide avec sqlGuard, on exécute, on récupère les rows
+//   4. On RE-DEMANDE à l'IA de transformer les rows en français naturel
+//      (sans JSON, sans crochets, sans jargon technique)
+// L'utilisateur ne voit jamais le SQL ni les données brutes.
+// =====================================================================
+
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { validateReadOnlySql } from '../utils/sqlGuard.js';
@@ -166,3 +178,21 @@ ${SCHEMA}`;
 });
 
 export default router;
+
+// =====================================================================
+// EXPLICATION POUR LA SOUTENANCE (25 secondes) :
+// ---------------------------------------------------------------------
+// L'assistant IA est notre brique différenciante. Le pipeline est subtil :
+//   1. On donne à Groq/Llama le SCHÉMA complet de la base + les règles
+//      métier CNTS dans le system prompt
+//   2. L'IA reçoit la question et décide : pure info (réponse directe) ou
+//      requête data (génère un SELECT dans un bloc markdown)
+//   3. Si SQL : sqlGuard vérifie (SELECT only, tables whitelist, etc.)
+//      puis on exécute en lecture seule
+//   4. On rappelle Llama avec les RÉSULTATS bruts et on lui dit
+//      "reformule en phrases naturelles en français, pas de JSON"
+// L'utilisateur a l'impression de discuter avec un expert qui connaît
+// les chiffres en temps réel. Et c'est sécurisé : le garde SQL empêche
+// l'IA de modifier quoi que ce soit, même si elle voulait. Llama 3.3 70B
+// via Groq = latence < 1s et gratuit pour usage faible.
+// =====================================================================

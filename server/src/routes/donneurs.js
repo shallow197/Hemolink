@@ -1,3 +1,15 @@
+// =====================================================================
+// donneurs.js — Routes API pour la gestion des donneurs de sang
+// =====================================================================
+// 6 endpoints :
+//   GET    /api/donneurs              → liste filtrable (staff)
+//   GET    /api/donneurs/me           → profil + éligibilité + historique (donneur)
+//   PATCH  /api/donneurs/me           → édition de son propre profil
+//   GET    /api/donneurs/:id          → fiche d'un donneur (staff)
+//   POST   /api/donneurs              → création (staff)
+//   POST   /api/donneurs/:id/valider  → validation par le CNTS
+// =====================================================================
+
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
@@ -209,3 +221,15 @@ router.post('/:id/valider', requireAuth(), requireRole('cnts', 'admin'), async (
 });
 
 export default router;
+
+// =====================================================================
+// EXPLICATION POUR LA SOUTENANCE (15 secondes) :
+// ---------------------------------------------------------------------
+// Ce fichier expose deux mondes : le STAFF (liste, fiche, création,
+// validation des donneurs) et le DONNEUR lui-même (/me pour son profil
+// + éligibilité + historique). Le calcul d'éligibilité est délégué à
+// utils/eligibility.js (règles CNTS sur âge/poids/délai inter-dons).
+// La validation par le CNTS est un endpoint séparé /valider — c'est le
+// processus terrain : un donneur s'inscrit en ligne, puis le CNTS
+// confirme son éligibilité avant qu'il commence à recevoir des alertes.
+// =====================================================================

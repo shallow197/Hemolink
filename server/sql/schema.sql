@@ -3,6 +3,23 @@
 -- Système de coordination des dons de sang d'urgence au Sénégal
 -- Compatible MySQL 8 / MariaDB 10.4+ (WAMP)
 -- =====================================================================
+--
+-- Vue d'ensemble du modèle :
+--
+--   regions ←── hopitaux ←── stocks_sang
+--                  ↑              (1 ligne par hôpital × groupe sanguin)
+--                  │
+--                  ↓
+--   users ←─── donneurs ──→ historique_dons
+--      │           │
+--      │           ↓
+--      │      reponses_alertes ──→ alertes ──→ hopitaux
+--      │      (1 ligne par donneur×alerte = la "notification")
+--      ↓
+--   audit_log (traçabilité de toutes les actions sensibles)
+--
+-- Convention : utf8mb4 pour gérer correctement les accents et emojis.
+-- =====================================================================
 
 CREATE DATABASE IF NOT EXISTS hemolink CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE hemolink;
@@ -196,3 +213,27 @@ CREATE TABLE audit_log (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_audit_date (date_action)
 );
+
+-- =====================================================================
+-- EXPLICATION POUR LA SOUTENANCE (30 secondes) :
+-- ---------------------------------------------------------------------
+-- 9 tables organisées autour d'une logique simple :
+--   • regions, hopitaux : géographie du Sénégal (14 régions, 15 hôpitaux)
+--   • users + donneurs : un user_id LIE un compte connectable à un profil
+--     médical. Le user contient l'auth (email/hash/role), le donneur les
+--     infos médicales (groupe sanguin, poids, etc.). Cette séparation
+--     permet à un même donneur d'avoir un compte OU pas (si créé par staff).
+--   • stocks_sang : 1 ligne par couple (hôpital, groupe). Contrainte UNIQUE.
+--   • alertes : une campagne lancée par un hôpital
+--   • reponses_alertes : 1 ligne par (alerte, donneur) → c'est la
+--     "notification". UNIQUE pour éviter les doublons.
+--   • historique_dons : traçabilité médicale (don effectif, pas seulement
+--     promesse). Demandé par le CNTS pour la conformité réglementaire.
+--   • audit_log : qui a fait quoi quand (login, création alerte, modif
+--     stock, validation donneur). Indispensable pour audit institutionnel.
+--
+-- Les FOREIGN KEY garantissent la cohérence : impossible d'avoir une
+-- alerte sans hôpital, une réponse sans donneur, etc. Les INDEX accélèrent
+-- les requêtes fréquentes (recherche par groupe, par disponibilité, par
+-- géolocalisation).
+-- =====================================================================

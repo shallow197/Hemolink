@@ -60,38 +60,42 @@ export default function Donneurs() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-zinc-50">Donneurs</h2>
-          <p className="text-sm text-zinc-400">
+          <h2 className="text-2xl font-bold text-gray-900">Donneurs</h2>
+          <p className="text-sm text-gray-500">
             Registre des donneurs inscrits
-            {enAttente > 0 && peutValider && <span className="ml-2 text-amber-300">· {enAttente} en attente de validation</span>}
+            {enAttente > 0 && peutValider && (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                {enAttente} en attente de validation
+              </span>
+            )}
           </p>
         </div>
-        <button type="button" onClick={() => setModal(true)} className="rounded-xl bg-blood px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blood/25 hover:bg-blood-dark">
-          Ajouter un donneur
+        <button type="button" onClick={() => setModal(true)} className="rounded-xl bg-blood px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blood-dark">
+          + Ajouter un donneur
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-lg shadow-black/20">
-        <select value={filtreGs} onChange={(e) => setFiltreGs(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100">
+      <div className="flex flex-wrap gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <select value={filtreGs} onChange={(e) => setFiltreGs(e.target.value)} className={filterCls}>
           <option value="">Tous les groupes</option>
           {GROUPES.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
-        <input placeholder="Ville" value={filtreVille} onChange={(e) => setFiltreVille(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500" />
-        <select value={filtreDispo} onChange={(e) => setFiltreDispo(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100">
+        <input placeholder="Ville…" value={filtreVille} onChange={(e) => setFiltreVille(e.target.value)} className={filterCls} />
+        <select value={filtreDispo} onChange={(e) => setFiltreDispo(e.target.value)} className={filterCls}>
           <option value="">Disponibilité (toutes)</option>
           <option value="1">Disponibles</option>
           <option value="0">Non disponibles</option>
         </select>
-        <select value={filtreVal} onChange={(e) => setFiltreVal(e.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100">
+        <select value={filtreVal} onChange={(e) => setFiltreVal(e.target.value)} className={filterCls}>
           <option value="">Validation (toutes)</option>
           <option value="attente">En attente</option>
           <option value="valide">Validés</option>
         </select>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900 shadow-lg shadow-black/20">
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-zinc-950 text-xs uppercase text-zinc-500">
+          <thead className="border-b border-gray-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Nom</th>
               <th className="px-4 py-3">Groupe</th>
@@ -102,14 +106,18 @@ export default function Donneurs() {
               {peutValider && <th className="px-4 py-3">Actions</th>}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-50">
             {rows.map((d) => (
-              <tr key={d.id} className="border-t border-zinc-800 text-zinc-200">
-                <td className="px-4 py-3 font-medium text-zinc-100">{d.prenom} {d.nom}</td>
-                <td className="px-4 py-3"><span className={`rounded-md px-2 py-0.5 text-xs font-bold ${d.groupe_sanguin?.endsWith('-') ? 'bg-red-950/40 text-red-300' : 'bg-zinc-800 text-zinc-200'}`}>{d.groupe_sanguin}</span></td>
-                <td className="px-4 py-3 text-zinc-300">{d.telephone}</td>
-                <td className="px-4 py-3 text-zinc-400">{d.derniere_date_don ? new Date(d.derniere_date_don).toLocaleDateString('fr-FR') : '—'}</td>
-                <td className="px-4 py-3">{d.ville}{d.quartier ? <span className="text-zinc-500"> · {d.quartier}</span> : null}</td>
+              <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
+                <td className="px-4 py-3 font-medium text-gray-900">{d.prenom} {d.nom}</td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${d.groupe_sanguin?.endsWith('-') ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+                    {d.groupe_sanguin}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-gray-600">{d.telephone}</td>
+                <td className="px-4 py-3 text-gray-500">{d.derniere_date_don ? new Date(d.derniere_date_don).toLocaleDateString('fr-FR') : '—'}</td>
+                <td className="px-4 py-3 text-gray-700">{d.ville}{d.quartier ? <span className="text-gray-400"> · {d.quartier}</span> : null}</td>
                 <td className="px-4 py-3"><DispoBadge statut={d.statut_badge} /></td>
                 {peutValider && (
                   <td className="px-4 py-3">
@@ -124,13 +132,13 @@ export default function Donneurs() {
             ))}
           </tbody>
         </table>
-        {!rows.length && <p className="p-6 text-center text-zinc-500">Aucun donneur</p>}
+        {!rows.length && <p className="p-6 text-center text-sm text-gray-400">Aucun donneur</p>}
       </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl shadow-black/60">
-            <h3 className="text-lg font-bold text-zinc-50">Nouveau donneur</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gray-100 bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900">Nouveau donneur</h3>
             <form className="mt-4 space-y-3" onSubmit={submit}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} required />
@@ -150,16 +158,16 @@ export default function Donneurs() {
                 <Field label="Longitude" value={form.longitude} onChange={(v) => setForm({ ...form, longitude: v })} />
               </div>
               <Field label="Dernière date de don" type="date" value={form.derniere_date_don} onChange={(v) => setForm({ ...form, derniere_date_don: v })} />
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
-                <input type="checkbox" checked={form.disponible} onChange={(e) => setForm({ ...form, disponible: e.target.checked })} className="rounded border-zinc-600 bg-zinc-800 text-blood" />
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={form.disponible} onChange={(e) => setForm({ ...form, disponible: e.target.checked })} className="rounded border-gray-300 text-blood" />
                 Disponible
               </label>
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
-                <input type="checkbox" checked={form.en_attente_validation} onChange={(e) => setForm({ ...form, en_attente_validation: e.target.checked })} className="rounded border-zinc-600 bg-zinc-800 text-blood" />
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={form.en_attente_validation} onChange={(e) => setForm({ ...form, en_attente_validation: e.target.checked })} className="rounded border-gray-300 text-blood" />
                 Marquer en attente de validation
               </label>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setModal(false)} className="rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-700">Annuler</button>
+                <button type="button" onClick={() => setModal(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Annuler</button>
                 <button type="submit" className="rounded-lg bg-blood px-4 py-2 text-sm font-semibold text-white hover:bg-blood-dark">Enregistrer</button>
               </div>
             </form>
@@ -170,30 +178,34 @@ export default function Donneurs() {
   );
 }
 
+const filterCls = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blood focus:ring-1 focus:ring-blood/10';
+
 function Field({ label, value, onChange, type = 'text', required }) {
   return (
-    <label className="block text-xs font-medium text-zinc-400">
+    <label className="block text-sm font-medium text-gray-700">
       {label}
       <input type={type} required={required} value={value ?? ''} onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-red-800 focus:ring-2 focus:ring-red-900/40" />
+        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10" />
     </label>
   );
 }
 function Select({ label, value, onChange, options }) {
   const items = options.map((o) => (typeof o === 'string' ? { v: o, l: o } : o));
   return (
-    <label className="block text-xs font-medium text-zinc-400">
+    <label className="block text-sm font-medium text-gray-700">
       {label}
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-red-800 focus:ring-2 focus:ring-red-900/40">
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10">
         {items.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
       </select>
     </label>
   );
 }
 function DispoBadge({ statut }) {
-  const m = { disponible: 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30',
-              indisponible: 'bg-zinc-700 text-zinc-300 ring-1 ring-zinc-600',
-              en_attente: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30' };
+  const m = {
+    disponible:   'bg-emerald-100 text-emerald-700',
+    indisponible: 'bg-gray-100 text-gray-600',
+    en_attente:   'bg-amber-100 text-amber-700',
+  };
   const l = { disponible: 'Disponible', indisponible: 'Indisponible', en_attente: 'En attente' };
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${m[statut] || 'bg-zinc-700 text-zinc-300'}`}>{l[statut] || statut}</span>;
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${m[statut] || 'bg-gray-100 text-gray-600'}`}>{l[statut] || statut}</span>;
 }

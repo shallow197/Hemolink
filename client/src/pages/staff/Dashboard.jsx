@@ -49,18 +49,18 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-zinc-50">{titre}</h2>
-          <p className="text-sm text-zinc-400">Vue d'ensemble des dons et urgences</p>
+          <h2 className="text-2xl font-bold text-gray-900">{titre}</h2>
+          <p className="text-sm text-gray-500">Vue d'ensemble des dons et urgences</p>
         </div>
         {crit && (
-          <span className="inline-flex items-center rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white shadow-md shadow-red-900/40">
-            ⚠ Stock critique sur au moins un établissement
+          <span className="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-200">
+            Stock critique sur au moins un établissement
           </span>
         )}
       </div>
 
       {err && (
-        <div className="rounded-lg border border-red-900/50 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {err} — vérifiez que l'API et MySQL sont démarrés.
         </div>
       )}
@@ -69,12 +69,12 @@ export default function Dashboard() {
         <KpiCard label="Donneurs actifs"        value={kpis?.donneurs_inscrits ?? '—'} accent="border-l-4 border-blood" />
         <KpiCard label="Alertes en cours"       value={kpis?.alertes_actives ?? '—'} accent="border-l-4 border-amber-500" />
         <KpiCard label="Dons acceptés (mois)"   value={kpis?.dons_mois ?? '—'} accent="border-l-4 border-emerald-500" />
-        <KpiCard label="Hôpitaux sous seuil"    value={kpis?.hopitaux_stock_critique ?? '—'} accent="border-l-4 border-red-500" />
+        <KpiCard label="Hôpitaux sous seuil"    value={kpis?.hopitaux_stock_critique ?? '—'} accent="border-l-4 border-red-400" />
       </div>
 
       {hopitalData && (
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-          <h3 className="mb-3 text-sm font-semibold text-zinc-100">Mes stocks ({hopitalData.hopital.nom})</h3>
+        <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">Mes stocks ({hopitalData.hopital.nom})</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {hopitalData.stocks.map((s) => <StockMini key={s.groupe_sanguin} s={s} />)}
           </div>
@@ -82,38 +82,38 @@ export default function Dashboard() {
       )}
 
       <div className="grid gap-6 xl:grid-cols-5">
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-lg shadow-black/30 xl:col-span-3">
-          <h3 className="mb-3 text-sm font-semibold text-zinc-100">Carte — Sénégal</h3>
-          <p className="mb-2 text-xs text-zinc-500">
-            Bleu : hôpitaux · Rouge clignotant : alertes en cours · Vert : donneurs disponibles (renfort si compatible)
+        <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:col-span-3">
+          <h3 className="mb-1 text-sm font-semibold text-gray-900">Carte — Sénégal</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Bleu : hôpitaux · Rouge clignotant : alertes en cours · Vert : donneurs disponibles
           </p>
           <MapSenegal carte={carte} />
         </section>
 
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-lg shadow-black/30 xl:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold text-zinc-100">Dernières alertes</h3>
+        <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm xl:col-span-2">
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">Dernières alertes</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-700 text-xs text-zinc-500">
-                  <th className="py-2 pr-2">Hôpital</th>
-                  <th className="py-2 pr-2">Groupe</th>
-                  <th className="py-2 pr-2">Statut</th>
-                  <th className="py-2">Heure</th>
+                <tr className="border-b border-gray-100 text-xs text-gray-500">
+                  <th className="py-2 pr-2 font-medium">Hôpital</th>
+                  <th className="py-2 pr-2 font-medium">Groupe</th>
+                  <th className="py-2 pr-2 font-medium">Statut</th>
+                  <th className="py-2 font-medium">Heure</th>
                 </tr>
               </thead>
               <tbody>
                 {recent.map((a) => (
-                  <tr key={a.id} className="border-b border-zinc-800">
-                    <td className="py-2 pr-2 font-medium text-zinc-200">{a.hopital_nom}</td>
-                    <td className="py-2 pr-2 text-zinc-300">{a.groupe_sanguin}</td>
+                  <tr key={a.id} className="border-b border-gray-50">
+                    <td className="py-2 pr-2 font-medium text-gray-900">{a.hopital_nom}</td>
+                    <td className="py-2 pr-2 text-gray-700">{a.groupe_sanguin}</td>
                     <td className="py-2 pr-2"><StatutBadge statut={a.statut} /></td>
-                    <td className="py-2 text-zinc-400">{formatTime(a.date_creation)}</td>
+                    <td className="py-2 text-gray-500">{formatTime(a.date_creation)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {!recent.length && <p className="py-4 text-center text-sm text-zinc-500">Aucune alerte</p>}
+            {!recent.length && <p className="py-4 text-center text-sm text-gray-400">Aucune alerte</p>}
           </div>
         </section>
       </div>
@@ -123,9 +123,9 @@ export default function Dashboard() {
 
 function KpiCard({ label, value, accent }) {
   return (
-    <div className={`rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-lg shadow-black/20 ${accent}`}>
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-zinc-50">{value}</p>
+    <div className={`rounded-2xl border border-gray-100 bg-white p-5 shadow-sm ${accent}`}>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
     </div>
   );
 }
@@ -136,12 +136,12 @@ function StockMini({ s }) {
   const max = Math.max(s.seuil_critique * 4, s.quantite_poches, 1);
   const pct = Math.min(100, (s.quantite_poches / max) * 100);
   return (
-    <div className="rounded-xl border border-zinc-700 bg-zinc-950 p-3">
+    <div className="rounded-xl border border-gray-100 bg-slate-50 p-3">
       <div className="flex items-center justify-between text-xs">
-        <span className="font-semibold text-zinc-200">{s.groupe_sanguin}</span>
-        <span className={crit ? 'font-semibold text-red-400' : 'text-zinc-400'}>{s.quantite_poches} poches</span>
+        <span className="font-semibold text-gray-800">{s.groupe_sanguin}</span>
+        <span className={crit ? 'font-semibold text-red-600' : 'text-gray-500'}>{s.quantite_poches} poches</span>
       </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200">
         <div className={`h-full ${bar}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -150,11 +150,11 @@ function StockMini({ s }) {
 
 function StatutBadge({ statut }) {
   const map = {
-    en_cours: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30',
-    resolue:  'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30',
-    expiree:  'bg-zinc-700 text-zinc-300 ring-1 ring-zinc-600',
-    annulee:  'bg-zinc-700 text-zinc-300 ring-1 ring-zinc-600',
+    en_cours: 'bg-amber-100 text-amber-700',
+    resolue:  'bg-emerald-100 text-emerald-700',
+    expiree:  'bg-gray-100 text-gray-600',
+    annulee:  'bg-gray-100 text-gray-500',
   };
   const labels = { en_cours: 'En cours', resolue: 'Résolue', expiree: 'Expirée', annulee: 'Annulée' };
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${map[statut] || 'bg-zinc-700 text-zinc-300'}`}>{labels[statut] || statut}</span>;
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${map[statut] || 'bg-gray-100 text-gray-600'}`}>{labels[statut] || statut}</span>;
 }

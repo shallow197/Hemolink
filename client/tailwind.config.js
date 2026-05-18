@@ -5,8 +5,9 @@ export default {
     extend: {
       colors: {
         blood: {
-          DEFAULT: '#CC0000',
-          dark: '#990000',
+          DEFAULT: '#B91C1C',
+          dark: '#991B1B',
+          light: '#FEF2F2',
         },
       },
       fontFamily: {

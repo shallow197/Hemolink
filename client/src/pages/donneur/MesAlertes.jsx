@@ -1,12 +1,30 @@
+// =====================================================================
+// MesAlertes.jsx — Boîte de réception des alertes côté DONNEUR
+// =====================================================================
+// Cette page est le CŒUR DE L'EXPÉRIENCE DONNEUR : c'est ici qu'Aminata
+// voit l'appel au don urgent et peut accepter en un clic.
+//
+// Deux sections :
+//   1. "Réponses attendues" : alertes en cours auxquelles elle n'a pas
+//      encore répondu → boutons J'accepte / Pas cette fois
+//   2. "Historique" : alertes passées (déjà répondues ou clôturées)
+//
+// Polling : on rafraîchit toutes les 20s pour voir les nouvelles alertes.
+// =====================================================================
+
 import { useCallback, useEffect, useState } from 'react';
 import { fetchJson } from '../../api';
 import { usePoll } from '../../hooks/usePoll.js';
 
 export default function MesAlertes() {
+  // États : liste des alertes, message d'erreur éventuel, alerte en cours d'envoi
   const [rows, setRows] = useState([]);
   const [err, setErr] = useState(null);
-  const [busy, setBusy] = useState(null);
+  const [busy, setBusy] = useState(null); // id de l'alerte en cours de réponse (anti double-clic)
 
+  // --- Chargement des alertes du donneur connecté ---
+  // useCallback pour que la référence de la fonction soit stable
+  // (sinon le polling se réenregistre à chaque rendu).
   const load = useCallback(async () => {
     try {
       const data = await fetchJson('/api/alertes/mes');
@@ -16,9 +34,15 @@ export default function MesAlertes() {
     }
   }, []);
 
+  // Chargement initial au montage du composant
   useEffect(() => { load(); }, [load]);
+
+  // Polling : ré-appelle load() toutes les 20s en arrière-plan
+  // → si une nouvelle alerte arrive, elle apparaît sans rafraîchir la page
   usePoll(load, 20000, [load]);
 
+  // --- Action : accepter ou refuser une alerte ---
+  // POST /api/alertes/:id/repondre, puis on recharge la liste
   async function repondre(alerteId, reponse) {
     setBusy(alerteId);
     try {
@@ -34,56 +58,66 @@ export default function MesAlertes() {
     }
   }
 
+  // --- Tri des alertes en deux groupes ---
+  // "En attente" : alertes actives où le donneur n'a pas encore répondu
+  // "Historique" : tout le reste (refusé, accepté, expiré, etc.)
   const enAttente = rows.filter((a) => a.reponse === 'pas_repondu' && a.statut === 'en_cours');
   const historique = rows.filter((a) => a.reponse !== 'pas_repondu' || a.statut !== 'en_cours');
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-zinc-50">Mes alertes</h2>
-        <p className="text-sm text-zinc-400">Appels au don reçus dans votre zone</p>
+        <h2 className="text-2xl font-bold text-gray-900">Mes alertes</h2>
+        <p className="text-sm text-gray-500">Appels au don reçus dans votre zone</p>
       </div>
 
       {err && (
-        <div className="rounded-lg border border-red-900/50 bg-red-950/40 px-4 py-3 text-sm text-red-200">{err}</div>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{err}</div>
       )}
 
       <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Réponses attendues ({enAttente.length})</h3>
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
+          Réponses attendues ({enAttente.length})
+        </h3>
         {enAttente.length === 0 ? (
-          <p className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-center text-sm text-zinc-500">
-            Aucune alerte ne vous attend pour le moment. Merci d'être disponible ❤
-          </p>
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center text-sm text-gray-400 shadow-sm">
+            Aucune alerte ne vous attend pour le moment. Merci d'être disponible.
+          </div>
         ) : (
           <div className="space-y-3">
             {enAttente.map((a) => (
-              <article key={a.reponse_id} className="rounded-2xl border-2 border-red-700 bg-red-950/20 p-5 shadow-lg shadow-red-900/20">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+              <article key={a.reponse_id} className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm ring-1 ring-red-100">
+                <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <UrgenceBadge niveau={a.niveau_urgence} />
-                    <h4 className="mt-2 text-lg font-bold text-zinc-50">
+                    <h4 className="mt-2 text-lg font-bold text-gray-900">
                       {a.hopital_nom} — {a.groupe_sanguin}
                     </h4>
-                    <p className="text-sm text-zinc-400">
+                    <p className="text-sm text-gray-600">
                       {a.hopital_ville} · {Number(a.distance_km || 0).toFixed(1)} km de chez vous
                     </p>
-                    {a.message && <p className="mt-3 rounded-lg bg-zinc-900/60 p-3 text-sm text-zinc-300">"{a.message}"</p>}
-                    <p className="mt-2 text-xs text-zinc-500">
-                      Reçue {new Date(a.date_notification).toLocaleString('fr-FR')} · Contact : <a href={`tel:${a.hopital_tel}`} className="text-red-300 hover:underline">{a.hopital_tel}</a>
+                    {a.message && (
+                      <p className="mt-3 rounded-lg border border-red-100 bg-white px-3 py-2 text-sm text-gray-700 italic">
+                        "{a.message}"
+                      </p>
+                    )}
+                    <p className="mt-2 text-xs text-gray-500">
+                      Reçue {new Date(a.date_notification).toLocaleString('fr-FR')} · Contact :{' '}
+                      <a href={`tel:${a.hopital_tel}`} className="font-medium text-blood hover:underline">{a.hopital_tel}</a>
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => repondre(a.alerte_id, 'accepte')}
                       disabled={busy === a.alerte_id}
-                      className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-emerald-700 disabled:opacity-60"
+                      className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
                     >
                       ✓ J'accepte
                     </button>
                     <button
                       onClick={() => repondre(a.alerte_id, 'refuse')}
                       disabled={busy === a.alerte_id}
-                      className="rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-2.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
+                      className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                     >
                       Pas cette fois
                     </button>
@@ -96,15 +130,17 @@ export default function MesAlertes() {
       </section>
 
       <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Historique ({historique.length})</h3>
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">
+          Historique ({historique.length})
+        </h3>
         {historique.length === 0 ? (
-          <p className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-center text-sm text-zinc-500">
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center text-sm text-gray-400 shadow-sm">
             Aucune réponse passée.
-          </p>
+          </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900">
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-zinc-950 text-xs uppercase text-zinc-500">
+              <thead className="border-b border-gray-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="px-4 py-3">Hôpital</th>
                   <th className="px-4 py-3">Groupe</th>
@@ -114,15 +150,15 @@ export default function MesAlertes() {
                   <th className="px-4 py-3">Date</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-50">
                 {historique.map((a) => (
-                  <tr key={a.reponse_id} className="border-t border-zinc-800 text-zinc-200">
-                    <td className="px-4 py-3 font-medium">{a.hopital_nom}</td>
-                    <td className="px-4 py-3">{a.groupe_sanguin}</td>
-                    <td className="px-4 py-3 text-zinc-400">{Number(a.distance_km || 0).toFixed(1)} km</td>
+                  <tr key={a.reponse_id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-900">{a.hopital_nom}</td>
+                    <td className="px-4 py-3 text-gray-700">{a.groupe_sanguin}</td>
+                    <td className="px-4 py-3 text-gray-500">{Number(a.distance_km || 0).toFixed(1)} km</td>
                     <td className="px-4 py-3"><ReponseBadge reponse={a.reponse} /></td>
-                    <td className="px-4 py-3 capitalize text-zinc-400">{a.statut.replace('_', ' ')}</td>
-                    <td className="px-4 py-3 text-zinc-500">{new Date(a.date_notification).toLocaleDateString('fr-FR')}</td>
+                    <td className="px-4 py-3 capitalize text-gray-500">{a.statut.replace('_', ' ')}</td>
+                    <td className="px-4 py-3 text-gray-400">{new Date(a.date_notification).toLocaleDateString('fr-FR')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -136,19 +172,34 @@ export default function MesAlertes() {
 
 function UrgenceBadge({ niveau }) {
   const m = {
-    critique: 'bg-red-600 text-white',
-    urgent:   'bg-amber-500 text-zinc-900',
-    normal:   'bg-zinc-700 text-zinc-200',
+    critique: 'bg-red-100 text-red-700 font-bold',
+    urgent:   'bg-orange-100 text-orange-700 font-semibold',
+    normal:   'bg-gray-100 text-gray-600',
   };
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${m[niveau] || m.normal}`}>{niveau}</span>;
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] uppercase tracking-wide ${m[niveau] || m.normal}`}>{niveau}</span>;
 }
 
 function ReponseBadge({ reponse }) {
-  const m = {
-    accepte:     { c: 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30', l: 'Accepté' },
-    refuse:      { c: 'bg-zinc-700 text-zinc-300 ring-1 ring-zinc-600', l: 'Refusé' },
-    pas_repondu: { c: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30', l: 'En attente' },
+  const map = {
+    accepte:     { c: 'bg-emerald-100 text-emerald-700', l: 'Accepté' },
+    refuse:      { c: 'bg-gray-100 text-gray-600', l: 'Refusé' },
+    pas_repondu: { c: 'bg-amber-100 text-amber-700', l: 'En attente' },
   };
-  const v = m[reponse] || m.pas_repondu;
+  const v = map[reponse] || map.pas_repondu;
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${v.c}`}>{v.l}</span>;
 }
+
+// =====================================================================
+// EXPLICATION POUR LA SOUTENANCE (25 secondes) :
+// ---------------------------------------------------------------------
+// C'est LA page qui justifie l'application côté donneur. Quand Aminata
+// reçoit une alerte de l'hôpital Fann (sang O- critique), cette page
+// affiche en haut un bandeau rouge appelant son attention immédiate.
+// Deux boutons : "J'accepte" et "Pas cette fois". Un clic et c'est fini.
+// Le polling (toutes les 20s) fait que si elle ouvre l'app sans
+// rafraîchir, les nouvelles alertes apparaissent en direct.
+// Le `setBusy` empêche les double-clics qui créeraient des doubles
+// réponses (le backend renverrait 409 mais autant éviter). En dessous,
+// l'historique pour qu'elle se souvienne des alertes auxquelles elle
+// a participé. Tout est mobile-first (Tailwind responsive).
+// =====================================================================

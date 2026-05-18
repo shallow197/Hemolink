@@ -6,14 +6,14 @@ export default function PublicLayout() {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100">
-      <header className="border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
+    <div className="min-h-screen bg-slate-50 text-gray-900">
+      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link to="/accueil" className="flex items-center gap-3">
-            <Logo className="h-10 w-10" />
+            <Logo className="h-9 w-9" />
             <div>
-              <p className="text-base font-bold tracking-tight text-zinc-50">HemoLink</p>
-              <p className="text-[11px] text-zinc-400">Urgences sang · Sénégal</p>
+              <p className="text-base font-bold tracking-tight text-gray-900">HemoLink</p>
+              <p className="text-[11px] text-gray-500">Urgences sang · Sénégal</p>
             </div>
           </Link>
           <nav className="hidden items-center gap-1 sm:flex">
@@ -30,7 +30,7 @@ export default function PublicLayout() {
               </Link>
             ) : (
               <>
-                <Link to="/login" className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800">
+                <Link to="/login" className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                   Connexion
                 </Link>
                 <Link to="/register" className="rounded-lg bg-blood px-4 py-2 text-sm font-semibold text-white hover:bg-blood-dark">
@@ -46,8 +46,8 @@ export default function PublicLayout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-zinc-800 bg-zinc-950 py-6">
-        <div className="mx-auto max-w-6xl px-4 text-xs text-zinc-500">
+      <footer className="border-t border-gray-200 bg-white py-6">
+        <div className="mx-auto max-w-6xl px-4 text-xs text-gray-500">
           <p>
             HemoLink — Projet PPP DIC1/DGI/ESP/UCAD · En collaboration avec le Centre National de Transfusion Sanguine
             (CNTS) de Dakar.
@@ -60,7 +60,7 @@ export default function PublicLayout() {
 }
 
 function navCls({ isActive }) {
-  return `rounded-lg px-3 py-2 text-sm font-medium ${
-    isActive ? 'bg-red-950/50 text-red-400' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
+  return `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+    isActive ? 'bg-red-50 text-blood' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
   }`;
 }

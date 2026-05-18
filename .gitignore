@@ -1,5 +1,9 @@
 node_modules/
-dist/
+server/.env
 .env
+.claude/
+client/dist/
+client/dist-test/
 *.log
 .DS_Store
+client/vite.config.js.timestamp-*.mjs
