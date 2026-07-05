@@ -40,7 +40,7 @@ export function tousLesGroupesSanguins() {
 }
 
 // =====================================================================
-// EXPLICATION POUR LA SOUTENANCE (10 secondes) :
+// EXPLICATION :
 // ---------------------------------------------------------------------
 // Ce fichier encode UNE règle médicale fondamentale : qui peut donner du
 // sang à qui. Sans cette logique, on enverrait des alertes à des donneurs

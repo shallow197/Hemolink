@@ -21,6 +21,7 @@ export const pool = mysql.createPool({
   database: process.env.MYSQL_DATABASE || 'hemolink',
   waitForConnections: true, // si toutes occupées, on attend au lieu d'erreur
   connectionLimit: 10,      // max 10 connexions simultanées
+  charset: 'utf8mb4',
 });
 
 // =====================================================================

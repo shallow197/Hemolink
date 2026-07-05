@@ -22,7 +22,33 @@ git add -A
 echo.
 
 echo [3/4] Commit...
-git commit -m "feat: refonte multi-roles + commentaires soutenance" -m "- DB schema repense (9 tables: users, donneurs, hopitaux, stocks, alertes, reponses, historique, audit, regions)" -m "- Seed avec 15 hopitaux reels du Senegal + 30 donneurs geolocalises" -m "- Backend: auth JWT, bcrypt, helmet, rate-limit, validation Zod, audit log" -m "- Routes enrichies: /me, /repondre, /valider, /cnts/national, /stocks editables" -m "- Frontend: multi-roles (donneur, hopital, cnts, admin) + pages publiques" -m "- Pages publiques: Landing, Login (avec quick logins), Register 2 etapes, DevenirDonneur" -m "- Espace donneur: Dashboard, MesAlertes (accept/refuse), MonProfil, MonHistorique" -m "- Espace staff: Dashboard, Donneurs (validation), Hopitaux (stocks editables), Alertes, AlerteDetail (lien WhatsApp), CntsNational" -m "- Assistant IA (Groq/Llama 3.3 70B) avec garde SQL en lecture seule" -m "- Commentaires pedagogiques bloc-par-bloc + recap soutenance dans tous les fichiers cles" -m "- DEMO.md scenario de presentation en 5 actes" -m "- README.md complet + script init-db + script verify"
+git commit -m "feat: RGPD + CGU + certificats + CSV + SMS + landing OMS" ^
+  -m "== Conformite Loi 2008-12 (Senegal) + RGPD ==" ^
+  -m "- CGU/Politique de confidentialite completes (HemoLink-CGU.docx + page publique /cgu)" ^
+  -m "- 3 routes RGPD backend: GET /me/export (JSON portabilite), POST /me/anonymiser (option B), DELETE /me (droit oubli)" ^
+  -m "- Page 'Mes droits' donneur avec 3 boutons + modale confirmation (taper nom en MAJ)" ^
+  -m "- Register mis a jour: consentement explicite avec lien vers CGU" ^
+  -m "- Footer PublicLayout: lien CGU" ^
+  -m "== Certificat de don PDF ==" ^
+  -m "- Route GET /api/exports/donneur/certificat/:hdId (HTML autonome imprimable, N° unique HL-XXXXXX-YYYY)" ^
+  -m "- Bouton 'Telecharger' sur chaque ligne de MonHistorique" ^
+  -m "== Export CSV rapports CNTS ==" ^
+  -m "- Route GET /api/exports/cnts/csv (CSV multi-sections avec BOM UTF-8 pour Excel)" ^
+  -m "- Bouton 'Exporter en CSV/Excel' sur la vue nationale CNTS" ^
+  -m "== Simulation SMS (canal secondaire) ==" ^
+  -m "- Table notifications_sms + migration_sms.sql" ^
+  -m "- Auto-generation des SMS lors du declenchement d'une alerte (160 char, style ALERTE HemoLink)" ^
+  -m "- 3 endpoints: GET /queue, POST /:id/envoyer, POST /envoyer-tout" ^
+  -m "- Nouvelle page CNTS /staff/sms avec 4 KPIs cliquables + tableau + envoi batch" ^
+  -m "- Menu 'File SMS' ajoute au CNTS" ^
+  -m "== Landing amelioree ==" ^
+  -m "- Section 'Le contexte senegalais' avec 4 FactCard (chiffres OMS/CNTS)" ^
+  -m "- Section 'Notre ecosysteme' avec 4 PartnerCard (CNTS, ESP/UCAD, Ministere, OMS)" ^
+  -m "- Encart 'Lettre d'intention CNTS en cours d'obtention' (M. Serigne Kote)" ^
+  -m "== Docs et outils ==" ^
+  -m "- HemoLink-Presentation.docx: script 6x1min avec accroche revisee + SMS dans roadmap" ^
+  -m "- HemoLink-Soutenance.pptx: 12 slides pretes a projeter" ^
+  -m "- HemoLink-CGU.docx: document juridique conforme"
 
 if errorlevel 1 (
   echo.

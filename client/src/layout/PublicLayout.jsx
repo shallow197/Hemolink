@@ -67,7 +67,12 @@ export default function PublicLayout() {
                 Plateforme de mise en relation entre donneurs de sang et établissements de santé, en collaboration avec
                 le Centre National de Transfusion Sanguine (CNTS) de Dakar.
               </p>
-              <p className="mt-3 text-xs text-slate-500">© {new Date().getFullYear()} HemoLink. Tous droits réservés.</p>
+              <p className="mt-3 text-xs text-slate-500">
+                © {new Date().getFullYear()} HemoLink. Tous droits réservés. ·{' '}
+                <Link to="/cgu" className="font-semibold text-slate-300 hover:text-white underline">
+                  CGU & Confidentialité
+                </Link>
+              </p>
             </div>
           </div>
         </div>

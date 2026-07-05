@@ -13,6 +13,7 @@ const navDonneur = [
   { to: '/mon-espace/alertes', label: 'Mes alertes' },
   { to: '/mon-espace/historique', label: 'Historique' },
   { to: '/mon-espace/profil', label: 'Mon profil' },
+  { to: '/mon-espace/droits', label: 'Mes droits' },
 ];
 
 const navStaff = [
@@ -22,7 +23,11 @@ const navStaff = [
   { to: '/staff/alertes', label: 'Alertes' },
 ];
 
-const navCnts = [...navStaff, { to: '/staff/cnts', label: 'Vue nationale CNTS' }];
+const navCnts = [
+  ...navStaff,
+  { to: '/staff/cnts', label: 'Vue nationale CNTS' },
+  { to: '/staff/sms', label: 'File SMS' },
+];
 
 export default function AppLayout() {
   const [aiOpen, setAiOpen] = useState(false);
@@ -76,16 +81,13 @@ export default function AppLayout() {
             </button>
             <div className="hidden text-right text-xs sm:block">
               <p className="max-w-[140px] truncate font-medium text-brand-navy">{user?.email}</p>
-              <button type="button" onClick={handleLogout} className="font-medium text-slate-500 hover:text-blood">
-                Se déconnecter
-              </button>
             </div>
             <button
               type="button"
               onClick={handleLogout}
-              className="hl-btn-secondary px-2 py-1.5 text-xs sm:hidden"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-blood"
             >
-              Sortir
+              Se déconnecter
             </button>
           </div>
         </div>

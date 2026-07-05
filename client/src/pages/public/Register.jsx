@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
@@ -6,29 +6,43 @@ const GROUPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 const VILLES = ['Dakar', 'Pikine', 'Guédiawaye', 'Rufisque', 'Thiès', 'Saint-Louis', 'Kaolack', 'Ziguinchor', 'Touba', 'Louga'];
 
+const FORM_DEFAULT = {
+  email: '',
+  password: '',
+  password2: '',
+  nom: '',
+  prenom: '',
+  telephone: '',
+  date_naissance: '',
+  sexe: 'autre',
+  groupe_sanguin: 'O+',
+  poids_kg: '',
+  ville: 'Dakar',
+  quartier: '',
+  latitude: '',
+  longitude: '',
+  consentement_rgpd: false,
+};
+
+function loadDraft() {
+  try {
+    const raw = sessionStorage.getItem('hl_register_draft');
+    return raw ? { ...FORM_DEFAULT, ...JSON.parse(raw) } : FORM_DEFAULT;
+  } catch { return FORM_DEFAULT; }
+}
+
 export default function Register() {
   const { register } = useAuth();
   const nav = useNavigate();
   const [step, setStep] = useState(1);
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-    password2: '',
-    nom: '',
-    prenom: '',
-    telephone: '',
-    date_naissance: '',
-    sexe: 'autre',
-    groupe_sanguin: 'O+',
-    poids_kg: '',
-    ville: 'Dakar',
-    quartier: '',
-    latitude: '',
-    longitude: '',
-    consentement_rgpd: false,
-  });
+  const [form, setForm] = useState(loadDraft);
+
+  useEffect(() => {
+    const { password, password2, ...safe } = form;
+    sessionStorage.setItem('hl_register_draft', JSON.stringify(safe));
+  }, [form]);
 
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -72,6 +86,7 @@ export default function Register() {
         consentement_rgpd: form.consentement_rgpd,
       };
       await register(payload);
+      sessionStorage.removeItem('hl_register_draft');
       nav('/mon-espace', { replace: true });
     } catch (e) {
       setErr(e.message + (e.issues ? ' — ' + e.issues.map((i) => i.path + ': ' + i.message).join(' · ') : ''));
@@ -158,18 +173,28 @@ export default function Register() {
               </div>
             </div>
 
-            <label className="flex items-start gap-2 rounded-lg border border-gray-100 bg-slate-50 p-3 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={form.consentement_rgpd}
-                onChange={(e) => set('consentement_rgpd', e.target.checked)}
-                className="mt-0.5 rounded border-gray-300 text-blood"
-              />
-              <span>
-                Je consens au traitement de mes données médicales par HemoLink et le CNTS, conformément à la
-                règlementation de protection des données personnelles au Sénégal.
-              </span>
-            </label>
+            <div className="rounded-xl border-2 border-blood/30 bg-red-50/30 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blood">Consentement éclairé (obligatoire)</p>
+              <label className="flex items-start gap-2 text-sm text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={form.consentement_rgpd}
+                  onChange={(e) => set('consentement_rgpd', e.target.checked)}
+                  className="mt-0.5 rounded border-gray-300 text-blood"
+                />
+                <span>
+                  J'ai lu et j'accepte les{' '}
+                  <a href="/cgu" target="_blank" rel="noreferrer" className="font-semibold text-blood underline hover:text-blood-dark">
+                    Conditions Générales d'Utilisation et la Politique de Confidentialité
+                  </a>
+                  . Je consens au traitement de mes données médicales par HemoLink et le CNTS, conformément à la
+                  <strong> Loi 2008-12 du Sénégal</strong> et au <strong>RGPD</strong>.
+                </span>
+              </label>
+              <p className="mt-2 pl-6 text-xs text-gray-600">
+                ✓ Vous gardez le contrôle : à tout moment, vous pourrez exporter, anonymiser ou supprimer vos données depuis l'onglet « Mes droits ».
+              </p>
+            </div>
 
             {err && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
 

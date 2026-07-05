@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageHeader, KpiCard, Panel } from '../../components/ui.jsx';
-import { fetchJson } from '../../api';
+import { fetchJson, getToken } from '../../api';
 
 export default function CntsNational() {
   const [data, setData] = useState(null);
@@ -10,6 +10,22 @@ export default function CntsNational() {
     fetchJson('/api/dashboard/cnts/national').then(setData).catch((e) => setErr(e.message));
   }, []);
 
+  async function exporterCsv() {
+    try {
+      const res = await fetch('/api/exports/cnts/csv', {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) throw new Error('Erreur export');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hemolink-rapport-cnts-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) { alert(e.message); }
+  }
+
   if (err) return <p className="hl-alert-error">{err}</p>;
   if (!data) return <p className="text-slate-500">Chargement…</p>;
 
@@ -17,8 +33,16 @@ export default function CntsNational() {
   const totalDonneurs = data.donneurs_par_groupe.reduce((s, x) => s + Number(x.n || 0), 0);
 
   return (
-    <div className="hl-page">
-      <PageHeader title="Vue nationale CNTS" subtitle="Pilotage stratégique de la chaîne du don au Sénégal" />
+    <div className="hl-page rounded-2xl bg-slate-50 p-6">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <PageHeader title="Vue nationale CNTS" subtitle="Pilotage stratégique de la chaîne du don au Sénégal" />
+        <button
+          onClick={exporterCsv}
+          className="rounded-xl bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy/90"
+        >
+          📊 Exporter en CSV / Excel
+        </button>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Poches en stock (national)" value={totalStock} accent="border-l-blood" />
@@ -42,7 +66,7 @@ export default function CntsNational() {
                   {s.groupe_sanguin}
                 </p>
                 <p className={`mt-1 text-2xl font-bold ${crit ? 'text-blood' : 'text-brand-navy'}`}>{total}</p>
-                <p className="text-[10px] uppercase tracking-wide text-slate-400">poches</p>
+                <p className="text-[10px] uppercase tracking-wide text-slate-600">poches</p>
                 {crit && <p className="mt-1 text-[10px] font-bold uppercase text-blood">Critique</p>}
               </div>
             );
@@ -62,7 +86,7 @@ export default function CntsNational() {
                   <div className="flex-1 overflow-hidden rounded-full bg-slate-200">
                     <div className="h-2.5 rounded-full bg-gradient-to-r from-brand-navy to-blood" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="w-16 text-right text-slate-500">
+                  <span className="w-16 text-right text-slate-600">
                     <span className="font-bold text-brand-navy">{r.donneurs}</span>
                     <span className="ml-1 text-xs text-accent-teal">({r.disponibles})</span>
                   </span>
@@ -70,7 +94,7 @@ export default function CntsNational() {
               );
             })}
           </div>
-          <p className="mt-4 text-[11px] text-slate-400">Total · (disponibles validés)</p>
+          <p className="mt-4 text-[11px] text-slate-600">Total · (disponibles validés)</p>
         </Panel>
 
         <Panel title="Donneurs par groupe sanguin">

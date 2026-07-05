@@ -42,6 +42,10 @@ Règles métier CNTS Sénégal :
 - 1 poche de sang total se sépare en 3 composants : plaquettes (~7j), globules rouges (~40j), plasma (~1 an congelé)
 - Groupes négatifs (O-, A-, B-, AB-) prioritaires car rares
 - Donneur universel : O- / Receveur universel : AB+
+
+Créateurs de la plateforme :
+HemoLink a été créé par un groupe de 6 étudiants en DIC1 informatique de l'Ecole Supérieure Polytechnique de Dakar, Sénégal :
+Mahamat Nassour Abdelsalam, Mariama Diop, Alhousseynou Agne, Cheikh Saliou Mbacké Lô, Madina Mohamed Tall, Mame Cheikh Guèye.
 `;
 
 function extractSql(text) {
@@ -87,7 +91,8 @@ Règles strictes :
 - Ne mentionne jamais SQL, requête, base de données, table, ni "données brutes".
 - N'affiche pas les comptes sous forme "(N résultats)".
 - Intègre les faits utiles dans des phrases complètes, comme une vraie conversation.
-- Si l'information est sensible (donneur identifiable), ne donne le nom complet et téléphone que si l'utilisateur est staff hôpital ou CNTS.`;
+- Si l'information est sensible (donneur identifiable), ne donne le nom complet et téléphone que si l'utilisateur est staff hôpital ou CNTS.
+- Si on te demande qui a créé la plateforme, donne les noms des 6 étudiants de l'ESP Dakar sans utiliser de code SQL.`;
 
   let userMsg = `Question :\n${userQuestion}\n\n`;
   if (draftWithoutSql) userMsg += `Pistes : ${draftWithoutSql}\n\n`;
@@ -128,7 +133,7 @@ Règles SQL :
 - Pas de commentaires SQL (-- ou /* */).
 - Limite-toi à 50 lignes (LIMIT 50) sauf demande contraire explicite.
 
-Pour les questions purement informationnelles (éligibilité, processus, conseils, sensibilisation), réponds directement
+Pour les questions purement informationnelles (éligibilité, processus, conseils, sensibilisation, ou sur les créateurs de la plateforme), réponds directement
 sans bloc SQL, en mobilisant les règles métier du schéma fourni.
 
 Schéma :

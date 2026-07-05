@@ -4,8 +4,12 @@
 -- =====================================================================
 USE hemolink;
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE audit_log;
+TRUNCATE TABLE notifications_sms;
 TRUNCATE TABLE historique_dons;
 TRUNCATE TABLE reponses_alertes;
 TRUNCATE TABLE alertes;

@@ -18,6 +18,8 @@ import donneursRouter from './routes/donneurs.js';
 import hopitauxRouter from './routes/hopitaux.js';
 import alertesRouter from './routes/alertes.js';
 import aiRouter from './routes/ai.js';
+import smsRouter from './routes/sms.js';
+import exportsRouter from './routes/exports.js';
 
 dotenv.config(); // charge les variables d'environnement depuis server/.env
 
@@ -94,6 +96,8 @@ app.use('/api/donneurs', donneursRouter);   // CRUD donneurs + /me + validation
 app.use('/api/hopitaux', hopitauxRouter);   // hôpitaux + stocks + création d'alerte
 app.use('/api/alertes', alertesRouter);     // historique, détail, accept/refuse, statut
 app.use('/api/ai', aiRouter);               // assistant IA Groq
+app.use('/api/sms', smsRouter);             // file SMS (simulation Sonatel/Orange)
+app.use('/api/exports', exportsRouter);     // CSV CNTS + certificat de don
 
 // =====================================================================
 // BLOC 5 — Gestionnaire d'erreur global (filet de sécurité)

@@ -20,6 +20,7 @@ import Landing from './pages/public/Landing.jsx';
 import Login from './pages/public/Login.jsx';
 import Register from './pages/public/Register.jsx';
 import DevenirDonneur from './pages/public/DevenirDonneur.jsx';
+import Cgu from './pages/public/Cgu.jsx';
 
 // --- Pages staff (hopital, cnts, admin) ---
 import Dashboard from './pages/staff/Dashboard.jsx';
@@ -28,12 +29,14 @@ import Hopitaux from './pages/staff/Hopitaux.jsx';
 import Alertes from './pages/staff/Alertes.jsx';
 import AlerteDetail from './pages/staff/AlerteDetail.jsx';
 import CntsNational from './pages/staff/CntsNational.jsx';
+import SmsQueue from './pages/staff/SmsQueue.jsx';
 
 // --- Pages donneur (rôle 'donneur' uniquement) ---
 import DonneurDashboard from './pages/donneur/DonneurDashboard.jsx';
 import MesAlertes from './pages/donneur/MesAlertes.jsx';
 import MonProfil from './pages/donneur/MonProfil.jsx';
 import MonHistorique from './pages/donneur/MonHistorique.jsx';
+import MesDroits from './pages/donneur/MesDroits.jsx';
 
 import { useAuth } from './contexts/AuthContext.jsx';
 
@@ -63,6 +66,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/devenir-donneur" element={<DevenirDonneur />} />
+        <Route path="/cgu" element={<Cgu />} />
       </Route>
 
       {/* ----- ZONE 2 : ESPACE DONNEUR (protégé, rôle 'donneur') ----- */}
@@ -77,6 +81,7 @@ export default function App() {
         <Route path="/mon-espace/alertes" element={<MesAlertes />} />
         <Route path="/mon-espace/profil" element={<MonProfil />} />
         <Route path="/mon-espace/historique" element={<MonHistorique />} />
+        <Route path="/mon-espace/droits" element={<MesDroits />} />
       </Route>
 
       {/* ----- ZONE 3 : ESPACE STAFF (protégé, rôles staff) ----- */}
@@ -93,6 +98,7 @@ export default function App() {
         <Route path="/staff/alertes" element={<Alertes />} />
         <Route path="/staff/alertes/:id" element={<AlerteDetail />} />
         <Route path="/staff/cnts" element={<CntsNational />} />
+        <Route path="/staff/sms" element={<SmsQueue />} />
       </Route>
 
       {/* 404 — toute URL inconnue renvoie à la racine */}

@@ -48,6 +48,7 @@ export default function MonHistorique() {
                   <th>Type</th>
                   <th>Poches</th>
                   <th>Statut</th>
+                  <th>Certificat</th>
                 </tr>
               </thead>
               <tbody>
@@ -56,8 +57,26 @@ export default function MonHistorique() {
                     <td>{new Date(h.date_don).toLocaleDateString('fr-FR')}</td>
                     <td className="font-semibold">{h.hopital_nom || h.centre_nom || '—'}</td>
                     <td>{h.type_prelevement || '—'}</td>
-                    <td>{h.nombre_poches ?? '—'}</td>
-                    <td className="capitalize text-slate-500">{h.statut || 'validé'}</td>
+                    <td>{h.nombre_poches ?? h.poches_prelevees ?? '—'}</td>
+                    <td className="capitalize text-slate-500">{h.statut || (h.apte ? 'validé' : 'inapte')}</td>
+                    <td>
+                      <a
+                        href={`/api/exports/donneur/certificat/${h.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const url = `/api/exports/donneur/certificat/${h.id}`;
+                          const token = localStorage.getItem('hemolink_token');
+                          fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+                            .then(r => r.text())
+                            .then(html => { const w = window.open('', '_blank'); w.document.write(html); w.document.close(); });
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md bg-blood px-3 py-1 text-xs font-semibold text-white hover:bg-blood-dark"
+                      >
+                        📜 Télécharger
+                      </a>
+                    </td>
                   </tr>
                 ))}
               </tbody>

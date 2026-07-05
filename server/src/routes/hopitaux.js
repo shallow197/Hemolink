@@ -188,7 +188,7 @@ router.post('/alerte', requireAuth(), requireRole('hopital', 'cnts', 'admin'), v
 
     // ÉTAPE 4 — On récupère tous les donneurs ayant une position GPS
     const [donneurs] = await conn.query(
-      `SELECT id, latitude, longitude, disponible, en_attente_validation, groupe_sanguin
+      `SELECT id, telephone, latitude, longitude, disponible, en_attente_validation, groupe_sanguin
        FROM donneurs WHERE latitude IS NOT NULL AND longitude IS NOT NULL`
     );
 
@@ -208,7 +208,7 @@ router.post('/alerte', requireAuth(), requireRole('hopital', 'cnts', 'admin'), v
       } else if (useRadius) {
         continue;
       }
-      cibles.push({ id: d.id, dist });
+      cibles.push({ id: d.id, dist, telephone: d.telephone });
     }
 
     // Mise à jour du compteur "donneurs contactés"
@@ -222,6 +222,23 @@ router.post('/alerte', requireAuth(), requireRole('hopital', 'cnts', 'admin'), v
         'INSERT INTO reponses_alertes (alerte_id, donneur_id, reponse, distance_km) VALUES ?',
         [values]
       );
+
+      // ÉTAPE 6bis — File d'attente SMS (canal secondaire)
+      // Chaque alerte génère aussi un SMS pré-formaté, mis en file d'attente.
+      // Dans la démo actuelle, l'envoi est simulé ; en production, un worker
+      // consommerait cette file via l'API Sonatel/Orange.
+      const [[hopInfo]] = await conn.query('SELECT nom FROM hopitaux WHERE id = ?', [hopital_id]);
+      const nomHop = hopInfo?.nom || 'un hôpital';
+      const smsText = `ALERTE HemoLink ${niveau_urgence.toUpperCase()} — Sang ${groupe_sanguin} demandé a ${nomHop}. Repondez sur hemolink.sn/a/${alerteId} ou appelez le ${h.telephone || 'CNTS'}.`;
+      const smsValues = cibles
+        .filter((c) => c.telephone)
+        .map((c) => [alerteId, c.id, c.telephone, smsText.slice(0, 160), 'orange', 'en_file']);
+      if (smsValues.length) {
+        await conn.query(
+          'INSERT INTO notifications_sms (alerte_id, donneur_id, telephone, message, operateur, statut) VALUES ?',
+          [smsValues]
+        );
+      }
     }
 
     // Traçabilité (audit log)

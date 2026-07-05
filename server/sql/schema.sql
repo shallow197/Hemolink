@@ -24,9 +24,13 @@
 CREATE DATABASE IF NOT EXISTS hemolink CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE hemolink;
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS notifications_sms;
 DROP TABLE IF EXISTS historique_dons;
 DROP TABLE IF EXISTS reponses_alertes;
 DROP TABLE IF EXISTS alertes;
@@ -196,6 +200,27 @@ CREATE TABLE historique_dons (
   FOREIGN KEY (hopital_id) REFERENCES hopitaux(id) ON DELETE CASCADE,
   FOREIGN KEY (alerte_id) REFERENCES alertes(id) ON DELETE SET NULL,
   INDEX idx_hist_donneur (donneur_id, date_don)
+);
+
+-- ----------------------------------------------------------------------
+-- File d'attente SMS (canal secondaire pour les donneurs sans app)
+-- ----------------------------------------------------------------------
+CREATE TABLE notifications_sms (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  alerte_id INT NOT NULL,
+  donneur_id INT NOT NULL,
+  telephone VARCHAR(30) NOT NULL,
+  message TEXT NOT NULL,
+  operateur ENUM('orange','free','expresso','autre') DEFAULT 'orange',
+  statut ENUM('en_file','envoye','echec','annule') DEFAULT 'en_file',
+  date_creation DATETIME DEFAULT CURRENT_TIMESTAMP,
+  date_envoi DATETIME NULL,
+  date_echec DATETIME NULL,
+  motif_echec VARCHAR(255),
+  FOREIGN KEY (alerte_id) REFERENCES alertes(id) ON DELETE CASCADE,
+  FOREIGN KEY (donneur_id) REFERENCES donneurs(id) ON DELETE CASCADE,
+  INDEX idx_sms_statut (statut),
+  INDEX idx_sms_date (date_creation)
 );
 
 -- ----------------------------------------------------------------------
