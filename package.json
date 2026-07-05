@@ -1,0 +1,13 @@
+{
+  "name": "hemolink",
+  "version": "2.0.0",
+  "private": true,
+  "description": "HemoLink — coordination intelligente des dons de sang d'urgence au Sénégal (PPP DIC1/ESP/UCAD).",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "init-db":     "cd server && npm run init-db",
+    "dev:server":  "cd server && npm run dev",
+    "dev:client":  "cd client && npm run dev",
+    "build":       "cd client && npm run build"
+  }
+}
