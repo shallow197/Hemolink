@@ -38,6 +38,9 @@ import MonProfil from './pages/donneur/MonProfil.jsx';
 import MonHistorique from './pages/donneur/MonHistorique.jsx';
 import MesDroits from './pages/donneur/MesDroits.jsx';
 
+// --- Assistant IA (accessible à tout utilisateur authentifié) ---
+import AssistantPage from './pages/assistant/AssistantPage.jsx';
+
 import { useAuth } from './contexts/AuthContext.jsx';
 
 // --- Redirection intelligente depuis la racine ------------------------
@@ -99,6 +102,17 @@ export default function App() {
         <Route path="/staff/alertes/:id" element={<AlerteDetail />} />
         <Route path="/staff/cnts" element={<CntsNational />} />
         <Route path="/staff/sms" element={<SmsQueue />} />
+      </Route>
+
+      {/* ----- ZONE 4 : ASSISTANT IA (protégé, tout rôle authentifié) ----- */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/assistant" element={<AssistantPage />} />
       </Route>
 
       {/* 404 — toute URL inconnue renvoie à la racine */}

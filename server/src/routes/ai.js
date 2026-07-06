@@ -58,7 +58,7 @@ function stripSqlFences(text) {
   return text.replace(/```(?:sql)?[\s\S]*?```/gi, '').replace(/\s+/g, ' ').trim();
 }
 
-async function groqComplete({ apiKey, model, system, userText, temperature = 0.4, maxTokens = 2048 }) {
+async function groqComplete({ apiKey, model, system, userText, history = [], temperature = 0.4, maxTokens = 2048 }) {
   const res = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -66,6 +66,7 @@ async function groqComplete({ apiKey, model, system, userText, temperature = 0.4
       model,
       messages: [
         { role: 'system', content: system },
+        ...history.map((m) => ({ role: m.role, content: m.content })),
         { role: 'user', content: userText },
       ],
       max_tokens: maxTokens,
@@ -112,11 +113,15 @@ router.post('/chat', requireAuth({ optional: true }), async (req, res) => {
   }
 
   const { messages, lastUserMessage } = req.body;
-  const userText =
-    lastUserMessage ||
-    (Array.isArray(messages) && messages.length ? messages[messages.length - 1]?.content : '') ||
-    '';
+  const msgList = Array.isArray(messages) ? messages : [];
+  const userText = lastUserMessage || (msgList.length ? msgList[msgList.length - 1]?.content : '') || '';
   if (!userText.trim()) return res.status(400).json({ error: 'Message vide' });
+
+  // Historique de la conversation (hors dernier message, déjà dans userText) pour un vrai contexte multi-tour.
+  const history = msgList
+    .slice(0, -1)
+    .slice(-8)
+    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim());
 
   const role = req.user?.role || 'invite';
   const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
@@ -140,7 +145,7 @@ Schéma :
 ${SCHEMA}`;
 
   try {
-    const assistantText = await groqComplete({ apiKey, model, system, userText });
+    const assistantText = await groqComplete({ apiKey, model, system, userText, history });
 
     const sql = extractSql(assistantText);
     const draftSansSql = stripSqlFences(assistantText);
@@ -179,6 +184,34 @@ ${SCHEMA}`;
       error: e.message || 'Erreur assistant',
       reply: "Désolé, l'assistant n'a pas pu traiter la demande pour le moment.",
     });
+  }
+});
+
+// --- Titre auto de conversation (3-5 mots) pour la sidebar de l'assistant ---
+router.post('/title', requireAuth({ optional: true }), async (req, res) => {
+  const userMessage = typeof req.body?.userMessage === 'string' ? req.body.userMessage.trim() : '';
+  const assistantMessage = typeof req.body?.assistantMessage === 'string' ? req.body.assistantMessage : '';
+  const fallback = userMessage.split(/\s+/).slice(0, 5).join(' ') || 'Nouvelle discussion';
+
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey || !userMessage) return res.json({ title: fallback });
+
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  const system =
+    "Génère un titre très court (3 à 5 mots maximum, en français, sans guillemets ni ponctuation finale) qui résume l'échange suivant. Réponds uniquement avec le titre, rien d'autre.";
+  const userText = `Message utilisateur : ${userMessage}\nRéponse assistant : ${assistantMessage.slice(0, 400)}`;
+
+  try {
+    const raw = await groqComplete({ apiKey, model, system, userText, temperature: 0.3, maxTokens: 24 });
+    const title = raw
+      .split('\n')[0]
+      .replace(/^["'«»]+|["'«»]+$/g, '')
+      .replace(/[.!?]+$/g, '')
+      .trim();
+    res.json({ title: title || fallback });
+  } catch (e) {
+    console.error('title', e);
+    res.json({ title: fallback });
   }
 });
 
