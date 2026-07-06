@@ -8,6 +8,11 @@
     "init-db":     "cd server && npm run init-db",
     "dev:server":  "cd server && npm run dev",
     "dev:client":  "cd client && npm run dev",
-    "build":       "cd client && npm run build"
+    "build":       "cd server && npm install --production",
+    "start":       "cd server && node src/index.js",
+    "postinstall": "cd server && npm install"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
