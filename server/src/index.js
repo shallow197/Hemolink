@@ -20,6 +20,7 @@ import alertesRouter from './routes/alertes.js';
 import aiRouter from './routes/ai.js';
 import smsRouter from './routes/sms.js';
 import exportsRouter from './routes/exports.js';
+import notificationsRouter from './routes/notifications.js';
 
 dotenv.config(); // charge les variables d'environnement depuis server/.env
 
@@ -98,6 +99,7 @@ app.use('/api/alertes', alertesRouter);     // historique, détail, accept/refus
 app.use('/api/ai', aiRouter);               // assistant IA Groq
 app.use('/api/sms', smsRouter);             // file SMS (simulation Sonatel/Orange)
 app.use('/api/exports', exportsRouter);     // CSV CNTS + certificat de don
+app.use('/api/notifications', notificationsRouter); // cloche header
 
 // =====================================================================
 // BLOC 5 — Gestionnaire d'erreur global (filet de sécurité)
