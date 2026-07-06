@@ -1,3 +1,14 @@
+// =====================================================================
+// dashboard.js — Routes API pour les tableaux de bord et statistiques
+// =====================================================================
+// 5 endpoints :
+//   GET /api/dashboard/kpis              → 6 chiffres-clés (public)
+//   GET /api/dashboard/carte             → données pour la carte Leaflet
+//   GET /api/dashboard/alertes-recentes  → 12 dernières alertes
+//   GET /api/dashboard/cnts/national     → vue CNTS agrégée (rôle CNTS)
+//   GET /api/dashboard/hopital/:id       → vue staff d'un hôpital
+// =====================================================================
+
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -6,9 +17,11 @@ import { distanceKm } from '../utils/geo.js';
 
 const router = Router();
 
-// ---------------------------------------------------------------
-// GET /api/dashboard/kpis (public, alimente la landing + dashboards)
-// ---------------------------------------------------------------
+// =====================================================================
+// BLOC 1 — KPIs publics (alimentent la landing page et tous les dashboards)
+// =====================================================================
+// 6 chiffres calculés par 6 requêtes SQL séparées (chacune optimisée).
+// Public = pas de requireAuth → tout le monde peut voir les stats agrégées.
 router.get('/kpis', async (_req, res) => {
   try {
     const [[d]] = await pool.query('SELECT COUNT(*) AS n FROM donneurs WHERE en_attente_validation = 0');
@@ -36,9 +49,12 @@ router.get('/kpis', async (_req, res) => {
   }
 });
 
-// ---------------------------------------------------------------
-// GET /api/dashboard/carte
-// ---------------------------------------------------------------
+// =====================================================================
+// BLOC 2 — Données pour la carte interactive Leaflet
+// =====================================================================
+// Renvoie 3 listes : hôpitaux + alertes actives + donneurs géolocalisés,
+// PLUS un set des ids de donneurs compatibles avec au moins 1 alerte.
+// Le frontend utilise tout ça pour mettre en évidence les donneurs utiles.
 router.get('/carte', async (_req, res) => {
   try {
     const [donneurs] = await pool.query(
@@ -82,9 +98,10 @@ router.get('/carte', async (_req, res) => {
   }
 });
 
-// ---------------------------------------------------------------
-// GET /api/dashboard/alertes-recentes
-// ---------------------------------------------------------------
+// =====================================================================
+// BLOC 3 — Liste des 12 alertes les plus récentes
+// =====================================================================
+// Utilisée dans le widget "Dernières alertes" du dashboard staff.
 router.get('/alertes-recentes', async (_req, res) => {
   try {
     const [rows] = await pool.query(
@@ -100,9 +117,17 @@ router.get('/alertes-recentes', async (_req, res) => {
   }
 });
 
-// ---------------------------------------------------------------
-// GET /api/dashboard/cnts/national (vue nationale agrégée — CNTS)
-// ---------------------------------------------------------------
+// =====================================================================
+// BLOC 4 — VUE NATIONALE CNTS (réservé rôle cnts/admin)
+// =====================================================================
+// Le cœur du pilotage stratégique :
+//   • Stocks agrégés par groupe sanguin (somme nationale)
+//   • Donneurs par région (avec disponibles)
+//   • Donneurs par groupe sanguin
+//   • Activité 30 jours (jour par jour)
+//   • Comptes en attente de validation
+//   • Délai moyen de réponse en minutes
+// 6 requêtes SQL exécutées en parallèle conceptuellement.
 router.get('/cnts/national', requireAuth(), async (req, res) => {
   try {
     if (!['cnts', 'admin'].includes(req.user.role)) {
@@ -164,9 +189,11 @@ router.get('/cnts/national', requireAuth(), async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------
-// GET /api/dashboard/hopital/:id  (vue staff hôpital)
-// ---------------------------------------------------------------
+// =====================================================================
+// BLOC 5 — Vue dashboard d'un hôpital spécifique
+// =====================================================================
+// Le staff hôpital peut UNIQUEMENT consulter son propre hôpital.
+// Renvoie : fiche, stocks, alertes actives, dernières alertes, acceptations du mois.
 router.get('/hopital/:id', requireAuth(), async (req, res) => {
   try {
     const hopitalId = Number(req.params.id);
@@ -214,3 +241,16 @@ router.get('/hopital/:id', requireAuth(), async (req, res) => {
 });
 
 export default router;
+
+// =====================================================================
+// EXPLICATION POUR LA SOUTENANCE (20 secondes) :
+// ---------------------------------------------------------------------
+// Ce fichier alimente TOUS les tableaux de bord. Le plus impressionnant
+// pour le jury est la route /cnts/national : en une seule réponse JSON,
+// on a la photo de la chaîne nationale du don de sang — stocks agrégés,
+// donneurs par région, activité 30 jours, délai moyen de réponse. Toutes
+// ces stats sont calculées en SQL (GROUP BY, AVG, SUM, CASE WHEN) plutôt
+// qu'en JavaScript — c'est beaucoup plus rapide et ça passe à l'échelle.
+// Pour le CNTS, c'est un vrai cockpit décisionnel : ils voient en temps
+// réel où sont les pénuries et où il faut lancer des campagnes de don.
+// =====================================================================

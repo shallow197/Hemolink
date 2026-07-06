@@ -1,3 +1,15 @@
+// =====================================================================
+// donneurs.js — Routes API pour la gestion des donneurs de sang
+// =====================================================================
+// 6 endpoints :
+//   GET    /api/donneurs              → liste filtrable (staff)
+//   GET    /api/donneurs/me           → profil + éligibilité + historique (donneur)
+//   PATCH  /api/donneurs/me           → édition de son propre profil
+//   GET    /api/donneurs/:id          → fiche d'un donneur (staff)
+//   POST   /api/donneurs              → création (staff)
+//   POST   /api/donneurs/:id/valider  → validation par le CNTS
+// =====================================================================
+
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
@@ -208,4 +220,193 @@ router.post('/:id/valider', requireAuth(), requireRole('cnts', 'admin'), async (
   }
 });
 
+// ---------------------------------------------------------------
+// GET /api/donneurs/me/hopitaux-proches  → top 3 hôpitaux les plus proches
+// ---------------------------------------------------------------
+router.get('/me/hopitaux-proches', requireAuth(), requireRole('donneur'), async (req, res) => {
+  try {
+    const [[d]] = await pool.query(
+      'SELECT id, latitude, longitude FROM donneurs WHERE user_id = ?',
+      [req.user.id]
+    );
+    if (!d || d.latitude == null || d.longitude == null) return res.json([]);
+
+    const [hopitaux] = await pool.query(
+      `SELECT id, nom, ville, type, telephone, latitude, longitude
+       FROM hopitaux WHERE service_transfusion = 1 AND latitude IS NOT NULL AND longitude IS NOT NULL`
+    );
+
+    // Haversine simple inline
+    const R = 6371;
+    const toRad = (x) => (x * Math.PI) / 180;
+    const lat1 = Number(d.latitude), lon1 = Number(d.longitude);
+    const withDist = hopitaux.map((h) => {
+      const dLat = toRad(Number(h.latitude) - lat1);
+      const dLon = toRad(Number(h.longitude) - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(Number(h.latitude))) * Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return { ...h, distance_km: R * c };
+    });
+
+    withDist.sort((a, b) => a.distance_km - b.distance_km);
+    res.json(withDist.slice(0, 3));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erreur hôpitaux proches' });
+  }
+});
+
+// =====================================================================
+// BLOC RGPD — Droits du donneur (Loi 2008-12 Sénégal + RGPD)
+// =====================================================================
+// 3 endpoints qui matérialisent les droits du donneur sur ses données :
+//   GET    /api/donneurs/me/export      → portabilité (téléchargement JSON)
+//   POST   /api/donneurs/me/anonymiser  → anonymisation (option B des CGU)
+//   DELETE /api/donneurs/me             → suppression totale (option A, droit à l'oubli)
+//
+// Le staff peut aussi exécuter ces actions sur un donneur précis sur demande
+// du donneur via email (canal dpo@hemolink.sn — cf. CGU art. 11.2).
+// =====================================================================
+
+// GET /api/donneurs/me/export  → renvoie toutes les données du donneur en JSON
+router.get('/me/export', requireAuth(), requireRole('donneur'), async (req, res) => {
+  try {
+    const [[d]] = await pool.query('SELECT * FROM donneurs WHERE user_id = ?', [req.user.id]);
+    if (!d) return res.status(404).json({ error: 'Profil introuvable' });
+
+    const [historique] = await pool.query(
+      `SELECT hd.*, h.nom AS hopital_nom, h.ville AS hopital_ville
+       FROM historique_dons hd JOIN hopitaux h ON h.id = hd.hopital_id
+       WHERE hd.donneur_id = ? ORDER BY hd.date_don DESC`,
+      [d.id]
+    );
+
+    const [reponses] = await pool.query(
+      `SELECT r.*, a.groupe_sanguin AS alerte_groupe, a.niveau_urgence, a.date_creation AS alerte_date,
+              h.nom AS hopital_nom
+       FROM reponses_alertes r
+       JOIN alertes a ON a.id = r.alerte_id
+       JOIN hopitaux h ON h.id = a.hopital_id
+       WHERE r.donneur_id = ? ORDER BY r.date_notification DESC`,
+      [d.id]
+    );
+
+    const [[user]] = await pool.query(
+      'SELECT id, email, role, actif, email_verifie, derniere_connexion, date_creation FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    const exportData = {
+      meta: {
+        export_date: new Date().toISOString(),
+        legal_basis: ['Loi 2008-12 Sénégal art. 70 (droit à la portabilité)', 'RGPD art. 20'],
+        format_version: '1.0',
+      },
+      compte: user,
+      profil_donneur: d,
+      historique_dons: historique,
+      alertes_recues: reponses,
+    };
+
+    await audit(req, 'rgpd_export', 'donneurs', d.id);
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="hemolink-mes-donnees-${d.prenom}-${d.nom}-${new Date().toISOString().slice(0,10)}.json"`);
+    res.send(JSON.stringify(exportData, null, 2));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erreur export RGPD' });
+  }
+});
+
+// POST /api/donneurs/me/anonymiser  → option B des CGU (recommandée)
+// Efface l'identité mais conserve l'historique médical sans lien identifiable
+router.post('/me/anonymiser', requireAuth(), requireRole('donneur'), async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [[d]] = await conn.query('SELECT id FROM donneurs WHERE user_id = ?', [req.user.id]);
+    if (!d) return res.status(404).json({ error: 'Profil introuvable' });
+
+    await conn.beginTransaction();
+
+    // 1) Anonymisation du profil donneur (on garde id pour les FK historique)
+    const pseudo = 'ANONYMISÉ-' + d.id;
+    await conn.query(
+      `UPDATE donneurs SET
+        user_id = NULL,
+        nom = ?, prenom = ?,
+        telephone = 'XXXXXXXXXX', email = NULL,
+        date_naissance = NULL, sexe = 'autre',
+        poids_kg = NULL, region_id = NULL,
+        ville = '—', quartier = NULL,
+        latitude = NULL, longitude = NULL,
+        disponible = 0, en_attente_validation = 1,
+        consentement_rgpd = 0
+       WHERE id = ?`,
+      [pseudo, pseudo, d.id]
+    );
+
+    // 2) On purge les réponses aux alertes (pas de besoin médical)
+    await conn.query('DELETE FROM reponses_alertes WHERE donneur_id = ?', [d.id]);
+
+    // 3) On supprime le compte user (impossible de se reconnecter)
+    await conn.query('DELETE FROM users WHERE id = ?', [req.user.id]);
+
+    await conn.commit();
+
+    // Audit log volontairement SANS référence au donneur réel (anonymisation)
+    await audit(req, 'rgpd_anonymisation', 'donneurs', d.id, { type: 'option_B' });
+
+    res.json({ ok: true, message: 'Votre compte a été anonymisé conformément à la Loi 2008-12. Vos données identitaires ont été supprimées, votre historique médical est conservé anonymement.' });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error(e);
+    res.status(500).json({ error: 'Erreur anonymisation RGPD' });
+  } finally {
+    conn.release();
+  }
+});
+
+// DELETE /api/donneurs/me  → option A des CGU (suppression totale)
+// Efface tout : compte, profil, historique, réponses
+router.delete('/me', requireAuth(), requireRole('donneur'), async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [[d]] = await conn.query('SELECT id FROM donneurs WHERE user_id = ?', [req.user.id]);
+
+    await conn.beginTransaction();
+
+    if (d) {
+      // ON DELETE CASCADE supprime aussi reponses_alertes et historique_dons via FK
+      await conn.query('DELETE FROM donneurs WHERE id = ?', [d.id]);
+    }
+    await conn.query('DELETE FROM users WHERE id = ?', [req.user.id]);
+
+    await conn.commit();
+
+    await audit(req, 'rgpd_suppression_totale', 'donneurs', d?.id ?? null, { type: 'option_A' });
+
+    res.json({ ok: true, message: 'Votre compte et toutes vos données ont été supprimés définitivement, conformément à la Loi 2008-12 (droit à l\'oubli).' });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error(e);
+    res.status(500).json({ error: 'Erreur suppression RGPD' });
+  } finally {
+    conn.release();
+  }
+});
+
 export default router;
+
+// =====================================================================
+// EXPLICATION POUR LA SOUTENANCE (15 secondes) :
+// ---------------------------------------------------------------------
+// Ce fichier expose deux mondes : le STAFF (liste, fiche, création,
+// validation des donneurs) et le DONNEUR lui-même (/me pour son profil
+// + éligibilité + historique). Le calcul d'éligibilité est délégué à
+// utils/eligibility.js (règles CNTS sur âge/poids/délai inter-dons).
+// La validation par le CNTS est un endpoint séparé /valider — c'est le
+// processus terrain : un donneur s'inscrit en ligne, puis le CNTS
+// confirme son éligibilité avant qu'il commence à recevoir des alertes.
+// =====================================================================

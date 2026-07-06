@@ -1,3 +1,15 @@
+// =====================================================================
+// ai.js — Assistant IA HemoLink (chat conversationnel sur les données)
+// =====================================================================
+// Pipeline en 4 étapes pour répondre à une question utilisateur :
+//   1. On envoie la question à Groq (Llama 3.3 70B) avec le schéma de DB
+//   2. L'IA renvoie soit du texte direct, soit un bloc ```sql ... ```
+//   3. Si SQL : on valide avec sqlGuard, on exécute, on récupère les rows
+//   4. On RE-DEMANDE à l'IA de transformer les rows en français naturel
+//      (sans JSON, sans crochets, sans jargon technique)
+// L'utilisateur ne voit jamais le SQL ni les données brutes.
+// =====================================================================
+
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { validateReadOnlySql } from '../utils/sqlGuard.js';
@@ -30,6 +42,10 @@ Règles métier CNTS Sénégal :
 - 1 poche de sang total se sépare en 3 composants : plaquettes (~7j), globules rouges (~40j), plasma (~1 an congelé)
 - Groupes négatifs (O-, A-, B-, AB-) prioritaires car rares
 - Donneur universel : O- / Receveur universel : AB+
+
+Créateurs de la plateforme :
+HemoLink a été créé par un groupe de 6 étudiants en DIC1 informatique de l'Ecole Supérieure Polytechnique de Dakar, Sénégal :
+Mahamat Nassour Abdelsalam, Mariama Diop, Alhousseynou Agne, Cheikh Saliou Mbacké Lô, Madina Mohamed Tall, Mame Cheikh Guèye.
 `;
 
 function extractSql(text) {
@@ -42,7 +58,7 @@ function stripSqlFences(text) {
   return text.replace(/```(?:sql)?[\s\S]*?```/gi, '').replace(/\s+/g, ' ').trim();
 }
 
-async function groqComplete({ apiKey, model, system, userText, history = [], temperature = 0.4, maxTokens = 2048 }) {
+async function groqComplete({ apiKey, model, system, userText, temperature = 0.4, maxTokens = 2048 }) {
   const res = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -50,7 +66,6 @@ async function groqComplete({ apiKey, model, system, userText, history = [], tem
       model,
       messages: [
         { role: 'system', content: system },
-        ...history.map((m) => ({ role: m.role, content: m.content })),
         { role: 'user', content: userText },
       ],
       max_tokens: maxTokens,
@@ -76,7 +91,8 @@ Règles strictes :
 - Ne mentionne jamais SQL, requête, base de données, table, ni "données brutes".
 - N'affiche pas les comptes sous forme "(N résultats)".
 - Intègre les faits utiles dans des phrases complètes, comme une vraie conversation.
-- Si l'information est sensible (donneur identifiable), ne donne le nom complet et téléphone que si l'utilisateur est staff hôpital ou CNTS.`;
+- Si l'information est sensible (donneur identifiable), ne donne le nom complet et téléphone que si l'utilisateur est staff hôpital ou CNTS.
+- Si on te demande qui a créé la plateforme, donne les noms des 6 étudiants de l'ESP Dakar sans utiliser de code SQL.`;
 
   let userMsg = `Question :\n${userQuestion}\n\n`;
   if (draftWithoutSql) userMsg += `Pistes : ${draftWithoutSql}\n\n`;
@@ -96,15 +112,11 @@ router.post('/chat', requireAuth({ optional: true }), async (req, res) => {
   }
 
   const { messages, lastUserMessage } = req.body;
-  const msgList = Array.isArray(messages) ? messages : [];
-  const userText = lastUserMessage || (msgList.length ? msgList[msgList.length - 1]?.content : '') || '';
+  const userText =
+    lastUserMessage ||
+    (Array.isArray(messages) && messages.length ? messages[messages.length - 1]?.content : '') ||
+    '';
   if (!userText.trim()) return res.status(400).json({ error: 'Message vide' });
-
-  // Historique de la conversation (hors dernier message, déjà dans userText) pour un vrai contexte multi-tour.
-  const history = msgList
-    .slice(0, -1)
-    .slice(-8)
-    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim());
 
   const role = req.user?.role || 'invite';
   const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
@@ -121,14 +133,14 @@ Règles SQL :
 - Pas de commentaires SQL (-- ou /* */).
 - Limite-toi à 50 lignes (LIMIT 50) sauf demande contraire explicite.
 
-Pour les questions purement informationnelles (éligibilité, processus, conseils, sensibilisation), réponds directement
+Pour les questions purement informationnelles (éligibilité, processus, conseils, sensibilisation, ou sur les créateurs de la plateforme), réponds directement
 sans bloc SQL, en mobilisant les règles métier du schéma fourni.
 
 Schéma :
 ${SCHEMA}`;
 
   try {
-    const assistantText = await groqComplete({ apiKey, model, system, userText, history });
+    const assistantText = await groqComplete({ apiKey, model, system, userText });
 
     const sql = extractSql(assistantText);
     const draftSansSql = stripSqlFences(assistantText);
@@ -170,31 +182,22 @@ ${SCHEMA}`;
   }
 });
 
-router.post('/title', requireAuth({ optional: true }), async (req, res) => {
-  const userMessage = typeof req.body?.userMessage === 'string' ? req.body.userMessage.trim() : '';
-  const assistantMessage = typeof req.body?.assistantMessage === 'string' ? req.body.assistantMessage : '';
-  const fallback = userMessage.split(/\s+/).slice(0, 5).join(' ') || 'Nouvelle discussion';
-
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || !userMessage) return res.json({ title: fallback });
-
-  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-  const system =
-    "Génère un titre très court (3 à 5 mots maximum, en français, sans guillemets ni ponctuation finale) qui résume l'échange suivant. Réponds uniquement avec le titre, rien d'autre.";
-  const userText = `Message utilisateur : ${userMessage}\nRéponse assistant : ${assistantMessage.slice(0, 400)}`;
-
-  try {
-    const raw = await groqComplete({ apiKey, model, system, userText, temperature: 0.3, maxTokens: 24 });
-    const title = raw
-      .split('\n')[0]
-      .replace(/^["'«»]+|["'«»]+$/g, '')
-      .replace(/[.!?]+$/g, '')
-      .trim();
-    res.json({ title: title || fallback });
-  } catch (e) {
-    console.error('title', e);
-    res.json({ title: fallback });
-  }
-});
-
 export default router;
+
+// =====================================================================
+// EXPLICATION POUR LA SOUTENANCE (25 secondes) :
+// ---------------------------------------------------------------------
+// L'assistant IA est notre brique différenciante. Le pipeline est subtil :
+//   1. On donne à Groq/Llama le SCHÉMA complet de la base + les règles
+//      métier CNTS dans le system prompt
+//   2. L'IA reçoit la question et décide : pure info (réponse directe) ou
+//      requête data (génère un SELECT dans un bloc markdown)
+//   3. Si SQL : sqlGuard vérifie (SELECT only, tables whitelist, etc.)
+//      puis on exécute en lecture seule
+//   4. On rappelle Llama avec les RÉSULTATS bruts et on lui dit
+//      "reformule en phrases naturelles en français, pas de JSON"
+// L'utilisateur a l'impression de discuter avec un expert qui connaît
+// les chiffres en temps réel. Et c'est sécurisé : le garde SQL empêche
+// l'IA de modifier quoi que ce soit, même si elle voulait. Llama 3.3 70B
+// via Groq = latence < 1s et gratuit pour usage faible.
+// =====================================================================

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
@@ -6,29 +6,43 @@ const GROUPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 const VILLES = ['Dakar', 'Pikine', 'Guédiawaye', 'Rufisque', 'Thiès', 'Saint-Louis', 'Kaolack', 'Ziguinchor', 'Touba', 'Louga'];
 
+const FORM_DEFAULT = {
+  email: '',
+  password: '',
+  password2: '',
+  nom: '',
+  prenom: '',
+  telephone: '',
+  date_naissance: '',
+  sexe: 'autre',
+  groupe_sanguin: 'O+',
+  poids_kg: '',
+  ville: 'Dakar',
+  quartier: '',
+  latitude: '',
+  longitude: '',
+  consentement_rgpd: false,
+};
+
+function loadDraft() {
+  try {
+    const raw = sessionStorage.getItem('hl_register_draft');
+    return raw ? { ...FORM_DEFAULT, ...JSON.parse(raw) } : FORM_DEFAULT;
+  } catch { return FORM_DEFAULT; }
+}
+
 export default function Register() {
   const { register } = useAuth();
   const nav = useNavigate();
   const [step, setStep] = useState(1);
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-    password2: '',
-    nom: '',
-    prenom: '',
-    telephone: '',
-    date_naissance: '',
-    sexe: 'autre',
-    groupe_sanguin: 'O+',
-    poids_kg: '',
-    ville: 'Dakar',
-    quartier: '',
-    latitude: '',
-    longitude: '',
-    consentement_rgpd: false,
-  });
+  const [form, setForm] = useState(loadDraft);
+
+  useEffect(() => {
+    const { password, password2, ...safe } = form;
+    sessionStorage.setItem('hl_register_draft', JSON.stringify(safe));
+  }, [form]);
 
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -72,6 +86,7 @@ export default function Register() {
         consentement_rgpd: form.consentement_rgpd,
       };
       await register(payload);
+      sessionStorage.removeItem('hl_register_draft');
       nav('/mon-espace', { replace: true });
     } catch (e) {
       setErr(e.message + (e.issues ? ' — ' + e.issues.map((i) => i.path + ': ' + i.message).join(' · ') : ''));
@@ -97,13 +112,16 @@ export default function Register() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-xl shadow-black/30">
+      <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-md">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-zinc-50">Devenir donneur</h1>
-          <span className="text-xs text-zinc-500">Étape {step} / 2</span>
+          <h1 className="text-2xl font-bold text-gray-900">Devenir donneur</h1>
+          <div className="flex items-center gap-2">
+            <span className={`h-2 w-8 rounded-full ${step >= 1 ? 'bg-blood' : 'bg-gray-200'}`} />
+            <span className={`h-2 w-8 rounded-full ${step >= 2 ? 'bg-blood' : 'bg-gray-200'}`} />
+          </div>
         </div>
-        <p className="mt-1 text-sm text-zinc-400">
-          Inscrivez-vous pour être alerté des urgences transfusionnelles dans votre zone.
+        <p className="mt-1 text-sm text-gray-500">
+          Étape {step} / 2 — Inscrivez-vous pour être alerté des urgences transfusionnelles dans votre zone.
         </p>
 
         {step === 1 && (
@@ -118,12 +136,12 @@ export default function Register() {
               <Field label="Mot de passe (8+ caractères)" type="password" value={form.password} onChange={(v) => set('password', v)} required />
               <Field label="Confirmer le mot de passe"     type="password" value={form.password2} onChange={(v) => set('password2', v)} required />
             </div>
-            {err && <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-200">{err}</p>}
-            <button type="submit" className="w-full rounded-xl bg-blood py-2.5 text-sm font-semibold text-white hover:bg-blood-dark">
-              Continuer
+            {err && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
+            <button type="submit" className="w-full rounded-xl bg-blood py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blood-dark">
+              Continuer →
             </button>
-            <p className="text-center text-sm text-zinc-400">
-              Déjà inscrit ? <Link to="/login" className="text-red-300 hover:text-red-200">Se connecter</Link>
+            <p className="text-center text-sm text-gray-600">
+              Déjà inscrit ? <Link to="/login" className="font-medium text-blood hover:text-blood-dark">Se connecter</Link>
             </p>
           </form>
         )}
@@ -141,44 +159,54 @@ export default function Register() {
             </div>
             <Field label="Quartier" value={form.quartier} onChange={(v) => set('quartier', v)} placeholder="Mermoz, Yoff, Plateau…" />
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="rounded-xl border border-gray-100 bg-slate-50 p-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-zinc-200">Géolocalisation (optionnel)</p>
-                <button type="button" onClick={geolocate} className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800">
+                <p className="text-sm font-medium text-gray-700">Géolocalisation (optionnel)</p>
+                <button type="button" onClick={geolocate} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 shadow-sm">
                   Utiliser ma position
                 </button>
               </div>
-              <p className="mt-1 text-xs text-zinc-500">Améliore la précision des alertes ciblées par rayon.</p>
+              <p className="mt-1 text-xs text-gray-500">Améliore la précision des alertes ciblées par rayon.</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <Field label="Latitude" value={form.latitude} onChange={(v) => set('latitude', v)} />
                 <Field label="Longitude" value={form.longitude} onChange={(v) => set('longitude', v)} />
               </div>
             </div>
 
-            <label className="flex items-start gap-2 text-sm text-zinc-300">
-              <input
-                type="checkbox"
-                checked={form.consentement_rgpd}
-                onChange={(e) => set('consentement_rgpd', e.target.checked)}
-                className="mt-0.5 rounded border-zinc-600 bg-zinc-800 text-blood"
-              />
-              <span>
-                Je consens au traitement de mes données médicales par HemoLink et le CNTS, conformément à la
-                règlementation de protection des données personnelles au Sénégal.
-              </span>
-            </label>
+            <div className="rounded-xl border-2 border-blood/30 bg-red-50/30 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blood">Consentement éclairé (obligatoire)</p>
+              <label className="flex items-start gap-2 text-sm text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={form.consentement_rgpd}
+                  onChange={(e) => set('consentement_rgpd', e.target.checked)}
+                  className="mt-0.5 rounded border-gray-300 text-blood"
+                />
+                <span>
+                  J'ai lu et j'accepte les{' '}
+                  <a href="/cgu" target="_blank" rel="noreferrer" className="font-semibold text-blood underline hover:text-blood-dark">
+                    Conditions Générales d'Utilisation et la Politique de Confidentialité
+                  </a>
+                  . Je consens au traitement de mes données médicales par HemoLink et le CNTS, conformément à la
+                  <strong> Loi 2008-12 du Sénégal</strong> et au <strong>RGPD</strong>.
+                </span>
+              </label>
+              <p className="mt-2 pl-6 text-xs text-gray-600">
+                ✓ Vous gardez le contrôle : à tout moment, vous pourrez exporter, anonymiser ou supprimer vos données depuis l'onglet « Mes droits ».
+              </p>
+            </div>
 
-            {err && <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-200">{err}</p>}
+            {err && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
 
             <div className="flex gap-2">
-              <button type="button" onClick={() => setStep(1)} className="rounded-xl border border-zinc-700 px-4 py-2.5 text-sm text-zinc-200 hover:bg-zinc-800">
-                Retour
+              <button type="button" onClick={() => setStep(1)} className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                ← Retour
               </button>
-              <button type="submit" disabled={loading} className="flex-1 rounded-xl bg-blood py-2.5 text-sm font-semibold text-white hover:bg-blood-dark disabled:opacity-60">
+              <button type="submit" disabled={loading} className="flex-1 rounded-xl bg-blood py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blood-dark disabled:opacity-60">
                 {loading ? 'Création…' : "Créer mon compte"}
               </button>
             </div>
-            <p className="text-center text-xs text-zinc-500">
+            <p className="text-center text-xs text-gray-500">
               Votre compte sera vérifié par le CNTS avant validation définitive.
             </p>
           </form>
@@ -190,7 +218,7 @@ export default function Register() {
 
 function Field({ label, value, onChange, type = 'text', required, placeholder }) {
   return (
-    <label className="block text-xs font-medium text-zinc-400">
+    <label className="block text-sm font-medium text-gray-700">
       {label}
       <input
         type={type}
@@ -198,7 +226,7 @@ function Field({ label, value, onChange, type = 'text', required, placeholder })
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-red-800 focus:ring-2 focus:ring-red-900/40"
+        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10"
       />
     </label>
   );
@@ -207,12 +235,12 @@ function Field({ label, value, onChange, type = 'text', required, placeholder })
 function Select({ label, value, onChange, options }) {
   const items = options.map((o) => (typeof o === 'string' ? { v: o, l: o } : o));
   return (
-    <label className="block text-xs font-medium text-zinc-400">
+    <label className="block text-sm font-medium text-gray-700">
       {label}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-red-800 focus:ring-2 focus:ring-red-900/40"
+        className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blood focus:ring-2 focus:ring-blood/10"
       >
         {items.map((o) => (
           <option key={o.v} value={o.v}>{o.l}</option>

@@ -1,3 +1,14 @@
+// =====================================================================
+// alertes.js — Routes API pour la gestion du cycle de vie des alertes
+// =====================================================================
+// 5 endpoints :
+//   GET   /api/alertes              → historique (staff)
+//   GET   /api/alertes/mes          → alertes reçues par le donneur connecté
+//   POST  /api/alertes/:id/repondre → le donneur accepte ou refuse
+//   GET   /api/alertes/:id          → détail (avec règles d'accès par rôle)
+//   PATCH /api/alertes/:id/statut   → résoudre/annuler/expirer (staff)
+// =====================================================================
+
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
@@ -7,18 +18,20 @@ import { audit } from '../utils/audit.js';
 
 const router = Router();
 
+// --- Schémas Zod -------------------------------------------------------
 const reponseSchema = z.object({
   reponse: z.enum(['accepte', 'refuse']),
   message_donneur: z.string().max(500).optional().default(''),
 });
-
 const statutSchema = z.object({
   statut: z.enum(['en_cours', 'resolue', 'expiree', 'annulee']),
 });
 
-// ---------------------------------------------------------------
-// GET /api/alertes  (toutes les alertes — staff)
-// ---------------------------------------------------------------
+// =====================================================================
+// BLOC 1 — Historique des alertes (réservé staff)
+// =====================================================================
+// Un staff hôpital ne voit QUE les alertes de son hôpital.
+// Le CNTS/admin voit toutes les alertes du Sénégal.
 router.get('/', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (req, res) => {
   try {
     let sql = `SELECT a.*, h.nom AS hopital_nom, h.ville AS hopital_ville
@@ -38,8 +51,36 @@ router.get('/', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (r
 });
 
 // ---------------------------------------------------------------
-// GET /api/alertes/mes  (alertes reçues par le donneur connecté)
+// GET /api/alertes/stats-mensuelles
 // ---------------------------------------------------------------
+// Renvoie le nombre d'alertes et le taux de résolution sur les 6 derniers mois.
+router.get('/stats-mensuelles', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (req, res) => {
+  try {
+    let sql = `SELECT DATE_FORMAT(date_creation, '%Y-%m') AS mois,
+                      COUNT(*) AS total,
+                      SUM(CASE WHEN statut = 'resolue' THEN 1 ELSE 0 END) AS resolues
+               FROM alertes
+               WHERE date_creation >= DATE_SUB(NOW(), INTERVAL 6 MONTH)`;
+    const params = [];
+    if (req.user.role === 'hopital') {
+      sql += ' AND hopital_id = ?';
+      params.push(req.user.hopital_id);
+    }
+    sql += ' GROUP BY mois ORDER BY mois';
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erreur stats mensuelles' });
+  }
+});
+
+// =====================================================================
+// BLOC 2 — Alertes reçues par le donneur connecté
+// =====================================================================
+// "Mes alertes" : on joint reponses_alertes ⇄ alertes ⇄ hopitaux pour
+// renvoyer un objet complet avec coordonnées hôpital, message, distance.
+// C'est ce qui alimente la page MesAlertes.jsx côté donneur.
 router.get('/mes', requireAuth(), requireRole('donneur'), async (req, res) => {
   try {
     const [[d]] = await pool.query('SELECT id FROM donneurs WHERE user_id = ?', [req.user.id]);
@@ -64,9 +105,19 @@ router.get('/mes', requireAuth(), requireRole('donneur'), async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------
-// POST /api/alertes/:id/repondre  (donneur accepte/refuse)
-// ---------------------------------------------------------------
+// =====================================================================
+// BLOC 3 — RÉPONSE DU DONNEUR (accept/refuse) — ENDPOINT CLÉ
+// =====================================================================
+// POST /api/alertes/:id/repondre  (body: { reponse: 'accepte'|'refuse' })
+//
+// Algorithme :
+//   1. Vérifier que le donneur EST destinataire de cette alerte
+//   2. Vérifier qu'il n'a pas déjà répondu (anti double-clic)
+//   3. UPDATE de sa ligne dans reponses_alertes
+//   4. Recalcul des compteurs (repondus, acceptes) sur l'alerte
+//   5. AUTO-RÉSOLUTION : si acceptes >= poches_necessaires → statut 'resolue'
+//
+// Tout est dans une transaction → cohérence garantie.
 router.post('/:id/repondre', requireAuth(), requireRole('donneur'), validate(reponseSchema), async (req, res) => {
   const conn = await pool.getConnection();
   try {
@@ -132,9 +183,14 @@ router.post('/:id/repondre', requireAuth(), requireRole('donneur'), validate(rep
   }
 });
 
-// ---------------------------------------------------------------
-// GET /api/alertes/:id  (détail)
-// ---------------------------------------------------------------
+// =====================================================================
+// BLOC 4 — Détail d'une alerte (visible selon le rôle)
+// =====================================================================
+// Règles d'accès :
+//   • staff hôpital : uniquement les alertes de son hôpital
+//   • donneur : uniquement les alertes dont il est destinataire
+//   • cnts/admin : toutes
+// Construit aussi une "timeline" pour afficher l'historique chronologique.
 router.get('/:id', requireAuth(), async (req, res) => {
   try {
     const [al] = await pool.query(
@@ -191,9 +247,11 @@ router.get('/:id', requireAuth(), async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------
-// PATCH /api/alertes/:id/statut  (résolution / annulation)
-// ---------------------------------------------------------------
+// =====================================================================
+// BLOC 5 — Changement manuel du statut d'une alerte
+// =====================================================================
+// Le staff peut clôturer manuellement (résolue/expirée/annulée).
+// L'auto-résolution du bloc 3 reste l'option par défaut.
 router.patch('/:id/statut', requireAuth(), requireRole('hopital', 'cnts', 'admin'), validate(statutSchema), async (req, res) => {
   try {
     const { statut } = req.body;
@@ -216,3 +274,16 @@ router.patch('/:id/statut', requireAuth(), requireRole('hopital', 'cnts', 'admin
 });
 
 export default router;
+
+// =====================================================================
+// EXPLICATION POUR LA SOUTENANCE (25 secondes) :
+// ---------------------------------------------------------------------
+// Ce fichier gère le CYCLE DE VIE d'une alerte. Le point central c'est
+// l'endpoint /repondre : quand Aminata clique "J'accepte" sur son
+// téléphone, on met à jour sa réponse, on recompte les acceptations, et
+// si on a atteint le nombre de poches demandé, l'alerte passe
+// automatiquement en "résolue" — l'hôpital est notifié visuellement
+// dans son dashboard. Les règles d'accès sont strictes : un donneur ne
+// peut voir QUE les alertes auxquelles il est convié (impossible
+// d'espionner les autres), un staff hôpital ne voit QUE les siennes.
+// =====================================================================

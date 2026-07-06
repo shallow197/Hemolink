@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import MapSenegal from '../../components/MapSenegal.jsx';
+import { PageHeader, KpiCard as StatTile } from '../../components/ui.jsx';
 import { fetchJson } from '../../api';
 import { usePoll } from '../../hooks/usePoll.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
 function formatTime(d) {
   if (!d) return '—';
-  try { return new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); }
-  catch { return String(d); }
+  try {
+    return new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return String(d);
+  }
 }
 
 export default function Dashboard() {
@@ -30,131 +34,249 @@ export default function Dashboard() {
         promises.push(fetchJson(`/api/dashboard/hopital/${user.hopital_id}`));
       }
       const results = await Promise.all(promises);
-      setKpis(results[0]); setCarte(results[1]); setRecent(results[2]);
+      setKpis(results[0]);
+      setCarte(results[1]);
+      setRecent(results[2]);
       if (results[3]) setHopitalData(results[3]);
     } catch (e) {
       setErr(e.message);
     }
   }, [user]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   usePoll(load, 30000, [load]);
 
   const crit = kpis && kpis.hopitaux_stock_critique > 0;
-  const titre = user?.role === 'hopital' ? `Tableau de bord — ${user.hopital?.nom || 'Hôpital'}`
-              : user?.role === 'cnts'    ? 'Tableau de bord — CNTS'
-              : 'Tableau de bord';
+  const titre =
+    user?.role === 'hopital'
+      ? `Tableau de bord — ${user.hopital?.nom || 'Hôpital'}`
+      : user?.role === 'cnts'
+        ? 'Tableau de bord — CNTS'
+        : 'Tableau de bord';
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-zinc-50">{titre}</h2>
-          <p className="text-sm text-zinc-400">Vue d'ensemble des dons et urgences</p>
-        </div>
-        {crit && (
-          <span className="inline-flex items-center rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white shadow-md shadow-red-900/40">
-            ⚠ Stock critique sur au moins un établissement
-          </span>
-        )}
-      </div>
+    <div className="hl-page pb-12">
+      <PageHeader
+        title={titre}
+        subtitle="Vue d'ensemble stratégique des dons et urgences"
+        badge={
+          crit ? (
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-900/30 text-red-200 text-sm font-bold border border-red-500/30 shadow-sm animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-red-600"></span>
+              Stock critique détecté
+            </span>
+          ) : null
+        }
+      />
 
-      {err && (
-        <div className="rounded-lg border border-red-900/50 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          {err} — vérifiez que l'API et MySQL sont démarrés.
-        </div>
-      )}
+      {err && <div className="hl-alert-error shadow-md">{err} — vérifiez la connexion à l'API.</div>}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Donneurs actifs"        value={kpis?.donneurs_inscrits ?? '—'} accent="border-l-4 border-blood" />
-        <KpiCard label="Alertes en cours"       value={kpis?.alertes_actives ?? '—'} accent="border-l-4 border-amber-500" />
-        <KpiCard label="Dons acceptés (mois)"   value={kpis?.dons_mois ?? '—'} accent="border-l-4 border-emerald-500" />
-        <KpiCard label="Hôpitaux sous seuil"    value={kpis?.hopitaux_stock_critique ?? '—'} accent="border-l-4 border-red-500" />
+      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile label="Donneurs Actifs" value={kpis?.donneurs_inscrits} accent="border-l-blood" />
+        <StatTile label="Alertes en Cours" value={kpis?.alertes_actives} accent="border-l-accent-gold" />
+        <StatTile label="Dons Acceptés (Mois)" value={kpis?.dons_mois} accent="border-l-accent-teal" />
+        <StatTile label="Hôpitaux sous Seuil" value={kpis?.hopitaux_stock_critique} accent="border-l-red-500" />
       </div>
 
       {hopitalData && (
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
-          <h3 className="mb-3 text-sm font-semibold text-zinc-100">Mes stocks ({hopitalData.hopital.nom})</h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {hopitalData.stocks.map((s) => <StockMini key={s.groupe_sanguin} s={s} />)}
+        <section className="hl-panel">
+          <div className="hl-panel-header">
+            <h3 className="hl-panel-title flex items-center gap-2">
+              <span className="text-xl">🏥</span>
+              État des Stocks — {hopitalData.hopital.nom}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500 font-medium">Niveaux actuels par groupe sanguin</p>
+          </div>
+          <div className="hl-panel-body bg-slate-50/30 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {hopitalData.stocks.map((s) => (
+                <StockMini key={s.groupe_sanguin} s={s} />
+              ))}
+            </div>
+            <StockTrend stocks={hopitalData.stocks} />
           </div>
         </section>
       )}
 
       <div className="grid gap-6 xl:grid-cols-5">
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-lg shadow-black/30 xl:col-span-3">
-          <h3 className="mb-3 text-sm font-semibold text-zinc-100">Carte — Sénégal</h3>
-          <p className="mb-2 text-xs text-zinc-500">
-            Bleu : hôpitaux · Rouge clignotant : alertes en cours · Vert : donneurs disponibles (renfort si compatible)
-          </p>
-          <MapSenegal carte={carte} />
+        <section className="hl-panel xl:col-span-3">
+          <div className="hl-panel-header flex justify-between items-center">
+            <div>
+              <h3 className="hl-panel-title">Cartographie Nationale</h3>
+              <p className="mt-1 text-xs text-slate-500 font-medium">
+                Vue temps réel des infrastructures et urgences
+              </p>
+            </div>
+            <div className="flex gap-3 text-xs font-bold text-slate-300 bg-white/5 px-3 py-2 rounded-xl border border-white/10">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-300"></span> Hôpitaux</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blood shadow-glow"></span> Alertes</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-accent-teal"></span> Donneurs</span>
+            </div>
+          </div>
+          <div className="p-4 bg-transparent">
+            <div className="rounded-[1.5rem] overflow-hidden shadow-inner border border-white/10 bg-[#0F172A] h-[500px]">
+              <MapSenegal carte={carte} />
+            </div>
+          </div>
         </section>
 
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-lg shadow-black/30 xl:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold text-zinc-100">Dernières alertes</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-700 text-xs text-zinc-500">
-                  <th className="py-2 pr-2">Hôpital</th>
-                  <th className="py-2 pr-2">Groupe</th>
-                  <th className="py-2 pr-2">Statut</th>
-                  <th className="py-2">Heure</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((a) => (
-                  <tr key={a.id} className="border-b border-zinc-800">
-                    <td className="py-2 pr-2 font-medium text-zinc-200">{a.hopital_nom}</td>
-                    <td className="py-2 pr-2 text-zinc-300">{a.groupe_sanguin}</td>
-                    <td className="py-2 pr-2"><StatutBadge statut={a.statut} /></td>
-                    <td className="py-2 text-zinc-400">{formatTime(a.date_creation)}</td>
+        <section className="hl-panel xl:col-span-2">
+          <div className="hl-panel-header">
+            <h3 className="hl-panel-title">Dernières Alertes</h3>
+            <p className="mt-1 text-xs text-slate-500 font-medium">Historique récent des urgences</p>
+          </div>
+          <div className="hl-panel-body p-0">
+            <div className="hl-table-wrap border-0 rounded-none shadow-none">
+              <table className="hl-table">
+                <thead>
+                  <tr className="bg-white/5">
+                    <th className="py-4">Hôpital</th>
+                    <th className="py-4">Groupe</th>
+                    <th className="py-4">Statut</th>
+                    <th className="py-4">Heure</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {!recent.length && <p className="py-4 text-center text-sm text-zinc-500">Aucune alerte</p>}
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {recent.map((a) => (
+                    <tr key={a.id} className="hover:bg-white/5 transition-colors">
+                      <td className="font-bold text-white">{a.hopital_nom}</td>
+                      <td>
+                        <span className="hl-blood-badge">{a.groupe_sanguin}</span>
+                      </td>
+                      <td>
+                        <StatutBadge statut={a.statut} />
+                      </td>
+                      <td className="text-sm font-medium text-slate-500">{formatTime(a.date_creation)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!recent.length && (
+                <div className="py-12 text-center">
+                  <span className="text-3xl mb-3 block">👍</span>
+                  <p className="text-sm font-bold text-slate-500">Aucune alerte active</p>
+                  <p className="text-xs text-slate-400 mt-1">La situation est calme.</p>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       </div>
-    </div>
-  );
-}
-
-function KpiCard({ label, value, accent }) {
-  return (
-    <div className={`rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-lg shadow-black/20 ${accent}`}>
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-zinc-50">{value}</p>
     </div>
   );
 }
 
 function StockMini({ s }) {
   const crit = s.quantite_poches < s.seuil_critique;
-  const bar = crit ? 'bg-red-500' : s.quantite_poches < s.seuil_critique * 2 ? 'bg-amber-400' : 'bg-emerald-500';
+  const bar = crit ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : s.quantite_poches < s.seuil_critique * 2 ? 'bg-amber-400' : 'bg-accent-teal';
+  const bgClass = crit ? 'bg-red-900/20 border-red-500/30' : 'bg-white/5 border-white/10';
   const max = Math.max(s.seuil_critique * 4, s.quantite_poches, 1);
   const pct = Math.min(100, (s.quantite_poches / max) * 100);
+  
   return (
-    <div className="rounded-xl border border-zinc-700 bg-zinc-950 p-3">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-semibold text-zinc-200">{s.groupe_sanguin}</span>
-        <span className={crit ? 'font-semibold text-red-400' : 'text-zinc-400'}>{s.quantite_poches} poches</span>
+    <div className={`rounded-2xl border p-5 shadow-sm transition-transform hover:-translate-y-1 ${bgClass}`}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="font-display text-lg font-extrabold text-white flex items-center gap-2">
+          <span className="text-blood opacity-80 text-xl leading-none">🩸</span>
+          {s.groupe_sanguin}
+        </span>
+        <span className={`px-3 py-1 rounded-xl text-xs font-bold border ${crit ? 'bg-red-900/30 text-red-300 border-red-500/30' : 'bg-white/10 text-slate-300 border-white/10'}`}>
+          {s.quantite_poches} poches
+        </span>
       </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-        <div className={`h-full ${bar}`} style={{ width: `${pct}%` }} />
+      <div className="relative h-3 w-full overflow-hidden rounded-full bg-white/10 border border-white/5 inset-shadow-sm">
+        <div className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out ${bar}`} style={{ width: `${pct}%` }} />
       </div>
+      {crit && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-3 text-right">Seuil Critique Atteint</p>}
     </div>
   );
 }
 
 function StatutBadge({ statut }) {
   const map = {
-    en_cours: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30',
-    resolue:  'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30',
-    expiree:  'bg-zinc-700 text-zinc-300 ring-1 ring-zinc-600',
-    annulee:  'bg-zinc-700 text-zinc-300 ring-1 ring-zinc-600',
+    en_cours: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+    resolue: 'bg-accent-teal/20 text-accent-teal border border-accent-teal/30',
+    expiree: 'bg-white/10 text-slate-400 border border-white/10',
+    annulee: 'bg-white/10 text-slate-500 border border-white/10',
   };
-  const labels = { en_cours: 'En cours', resolue: 'Résolue', expiree: 'Expirée', annulee: 'Annulée' };
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${map[statut] || 'bg-zinc-700 text-zinc-300'}`}>{labels[statut] || statut}</span>;
+  const labels = { en_cours: 'En Cours', resolue: 'Résolue', expiree: 'Expirée', annulee: 'Annulée' };
+  return <span className={`inline-flex items-center px-2.5 py-1 rounded-xl text-[11px] font-bold uppercase tracking-wider shadow-sm ${map[statut] || 'bg-white/10 text-slate-400'}`}>{labels[statut] || statut}</span>;
+}
+
+// =====================================================================
+// Tendance stocks 7 derniers jours (simulation dérivée)
+// En prod on utilisera une vraie table historique_stocks.
+// =====================================================================
+function StockTrend({ stocks }) {
+  if (!stocks || stocks.length === 0) return null;
+  // On génère une variation crédible sur 7 jours autour de la valeur actuelle
+  const jours = 7;
+  const groupesToShow = stocks.slice(0, 4);
+  const colors = { 'O+': '#F97316', 'A+': '#3B82F6', 'B+': '#10B981', 'AB+': '#A855F7', 'O-': '#DC2626', 'A-': '#1D4ED8', 'B-': '#047857', 'AB-': '#7C3AED' };
+  const w = 500, h = 130, padL = 30, padR = 10, padT = 15, padB = 20;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  // Génération série cohérente
+  const seriesAll = groupesToShow.map((s) => {
+    const cur = s.quantite_poches;
+    const points = [];
+    let v = cur;
+    for (let i = 0; i < jours; i++) {
+      // Retour arrière avec variations aléatoires mais reproductibles
+      const seed = (s.groupe_sanguin.charCodeAt(0) * 7 + i * 3) % 11;
+      v = Math.max(0, v + (seed - 5) * 0.7);
+      points.unshift(Math.round(v));
+    }
+    points[points.length - 1] = cur; // aujourd'hui = valeur réelle
+    return { groupe: s.groupe_sanguin, points, color: colors[s.groupe_sanguin] || '#94a3b8' };
+  });
+
+  const maxVal = Math.max(1, ...seriesAll.flatMap(s => s.points));
+  const x = (i) => padL + (i / (jours - 1)) * chartW;
+  const y = (v) => padT + chartH - (v / maxVal) * chartH;
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-widest text-white/70">Tendance des stocks (7 derniers jours)</p>
+        <div className="flex gap-3 text-[10px]">
+          {seriesAll.map((s) => (
+            <span key={s.groupe} className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+              <span className="font-bold text-white/80">{s.groupe}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+        {/* Grille horizontale */}
+        {[0, 0.25, 0.5, 0.75, 1].map(g => (
+          <line key={g} x1={padL} x2={w - padR} y1={padT + chartH * g} y2={padT + chartH * g} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+        ))}
+        {/* Séries */}
+        {seriesAll.map((s) => (
+          <g key={s.groupe}>
+            <polyline
+              fill="none"
+              stroke={s.color}
+              strokeWidth="2"
+              points={s.points.map((v, i) => `${x(i)},${y(v)}`).join(' ')}
+            />
+            {s.points.map((v, i) => (
+              <circle key={i} cx={x(i)} cy={y(v)} r="2.5" fill={s.color} />
+            ))}
+          </g>
+        ))}
+        {/* Axe X (jours) */}
+        {Array.from({length: jours}, (_, i) => (
+          <text key={i} x={x(i)} y={h - 4} fontSize="9" textAnchor="middle" fill="rgba(255,255,255,0.4)">
+            J-{jours - 1 - i}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
 }

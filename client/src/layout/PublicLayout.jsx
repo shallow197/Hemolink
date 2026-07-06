@@ -6,35 +6,41 @@ export default function PublicLayout() {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100">
-      <header className="border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link to="/accueil" className="flex items-center gap-3">
-            <Logo className="h-10 w-10" />
+    <div className="flex min-h-screen flex-col bg-brand-cream bg-mesh-public">
+      <div className="h-1 bg-gradient-to-r from-blood via-blood-dark to-brand-navy" aria-hidden />
+
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 shadow-header backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5">
+          <Link to="/accueil" className="group flex items-center gap-3">
+            <Logo className="h-10 w-10 transition-transform group-hover:scale-105" />
             <div>
-              <p className="text-base font-bold tracking-tight text-zinc-50">HemoLink</p>
-              <p className="text-[11px] text-zinc-400">Urgences sang · Sénégal</p>
+              <p className="font-display text-lg font-bold tracking-tight text-brand-navy">HemoLink</p>
+              <p className="text-[11px] font-medium text-slate-500">Urgences transfusionnelles · Sénégal</p>
             </div>
           </Link>
-          <nav className="hidden items-center gap-1 sm:flex">
-            <NavLink to="/accueil" end className={navCls}>Accueil</NavLink>
-            <NavLink to="/devenir-donneur" className={navCls}>Devenir donneur</NavLink>
+          <nav className="hidden items-center gap-0.5 sm:flex">
+            <NavLink to="/accueil" end className={navCls}>
+              Accueil
+            </NavLink>
+            <NavLink to="/devenir-donneur" className={navCls}>
+              Devenir donneur
+            </NavLink>
           </nav>
           <div className="flex items-center gap-2">
             {user ? (
               <Link
                 to={user.role === 'donneur' ? '/mon-espace' : '/staff'}
-                className="rounded-lg bg-blood px-4 py-2 text-sm font-semibold text-white hover:bg-blood-dark"
+                className="hl-btn-primary px-4 py-2"
               >
                 Mon espace
               </Link>
             ) : (
               <>
-                <Link to="/login" className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800">
+                <Link to="/login" className="hl-btn-secondary hidden px-3 py-2 sm:inline-flex">
                   Connexion
                 </Link>
-                <Link to="/register" className="rounded-lg bg-blood px-4 py-2 text-sm font-semibold text-white hover:bg-blood-dark">
-                  S'inscrire
+                <Link to="/register" className="hl-btn-primary px-4 py-2">
+                  S&apos;inscrire
                 </Link>
               </>
             )}
@@ -42,17 +48,33 @@ export default function PublicLayout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 md:py-12">
         <Outlet />
       </main>
 
-      <footer className="border-t border-zinc-800 bg-zinc-950 py-6">
-        <div className="mx-auto max-w-6xl px-4 text-xs text-zinc-500">
-          <p>
-            HemoLink — Projet PPP DIC1/DGI/ESP/UCAD · En collaboration avec le Centre National de Transfusion Sanguine
-            (CNTS) de Dakar.
-          </p>
-          <p className="mt-1">© {new Date().getFullYear()} HemoLink. Tous droits réservés.</p>
+      <footer className="mt-auto border-t border-slate-200/80 bg-brand-navy text-slate-300">
+        <div className="mx-auto max-w-6xl px-4 py-10">
+          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-center gap-3">
+              <Logo className="h-9 w-9" />
+              <div>
+                <p className="font-display font-bold text-white">HemoLink</p>
+                <p className="text-xs text-slate-400">Projet PPP · ESP / UCAD</p>
+              </div>
+            </div>
+            <div className="max-w-md text-sm leading-relaxed text-slate-400">
+              <p>
+                Plateforme de mise en relation entre donneurs de sang et établissements de santé, en collaboration avec
+                le Centre National de Transfusion Sanguine (CNTS) de Dakar.
+              </p>
+              <p className="mt-3 text-xs text-slate-500">
+                © {new Date().getFullYear()} HemoLink. Tous droits réservés. ·{' '}
+                <Link to="/cgu" className="font-semibold text-slate-300 hover:text-white underline">
+                  CGU & Confidentialité
+                </Link>
+              </p>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
@@ -60,7 +82,5 @@ export default function PublicLayout() {
 }
 
 function navCls({ isActive }) {
-  return `rounded-lg px-3 py-2 text-sm font-medium ${
-    isActive ? 'bg-red-950/50 text-red-400' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
-  }`;
+  return `hl-nav-link ${isActive ? 'hl-nav-link-active' : ''}`;
 }

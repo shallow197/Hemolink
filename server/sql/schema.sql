@@ -3,13 +3,34 @@
 -- Système de coordination des dons de sang d'urgence au Sénégal
 -- Compatible MySQL 8 / MariaDB 10.4+ (WAMP)
 -- =====================================================================
+--
+-- Vue d'ensemble du modèle :
+--
+--   regions ←── hopitaux ←── stocks_sang
+--                  ↑              (1 ligne par hôpital × groupe sanguin)
+--                  │
+--                  ↓
+--   users ←─── donneurs ──→ historique_dons
+--      │           │
+--      │           ↓
+--      │      reponses_alertes ──→ alertes ──→ hopitaux
+--      │      (1 ligne par donneur×alerte = la "notification")
+--      ↓
+--   audit_log (traçabilité de toutes les actions sensibles)
+--
+-- Convention : utf8mb4 pour gérer correctement les accents et emojis.
+-- =====================================================================
 
 CREATE DATABASE IF NOT EXISTS hemolink CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE hemolink;
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS notifications_sms;
 DROP TABLE IF EXISTS historique_dons;
 DROP TABLE IF EXISTS reponses_alertes;
 DROP TABLE IF EXISTS alertes;
@@ -182,6 +203,27 @@ CREATE TABLE historique_dons (
 );
 
 -- ----------------------------------------------------------------------
+-- File d'attente SMS (canal secondaire pour les donneurs sans app)
+-- ----------------------------------------------------------------------
+CREATE TABLE notifications_sms (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  alerte_id INT NOT NULL,
+  donneur_id INT NOT NULL,
+  telephone VARCHAR(30) NOT NULL,
+  message TEXT NOT NULL,
+  operateur ENUM('orange','free','expresso','autre') DEFAULT 'orange',
+  statut ENUM('en_file','envoye','echec','annule') DEFAULT 'en_file',
+  date_creation DATETIME DEFAULT CURRENT_TIMESTAMP,
+  date_envoi DATETIME NULL,
+  date_echec DATETIME NULL,
+  motif_echec VARCHAR(255),
+  FOREIGN KEY (alerte_id) REFERENCES alertes(id) ON DELETE CASCADE,
+  FOREIGN KEY (donneur_id) REFERENCES donneurs(id) ON DELETE CASCADE,
+  INDEX idx_sms_statut (statut),
+  INDEX idx_sms_date (date_creation)
+);
+
+-- ----------------------------------------------------------------------
 -- Journal d'audit (traçabilité actions sensibles — exigence CNTS)
 -- ----------------------------------------------------------------------
 CREATE TABLE audit_log (
@@ -196,3 +238,27 @@ CREATE TABLE audit_log (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_audit_date (date_action)
 );
+
+-- =====================================================================
+-- EXPLICATION POUR LA SOUTENANCE (30 secondes) :
+-- ---------------------------------------------------------------------
+-- 9 tables organisées autour d'une logique simple :
+--   • regions, hopitaux : géographie du Sénégal (14 régions, 15 hôpitaux)
+--   • users + donneurs : un user_id LIE un compte connectable à un profil
+--     médical. Le user contient l'auth (email/hash/role), le donneur les
+--     infos médicales (groupe sanguin, poids, etc.). Cette séparation
+--     permet à un même donneur d'avoir un compte OU pas (si créé par staff).
+--   • stocks_sang : 1 ligne par couple (hôpital, groupe). Contrainte UNIQUE.
+--   • alertes : une campagne lancée par un hôpital
+--   • reponses_alertes : 1 ligne par (alerte, donneur) → c'est la
+--     "notification". UNIQUE pour éviter les doublons.
+--   • historique_dons : traçabilité médicale (don effectif, pas seulement
+--     promesse). Demandé par le CNTS pour la conformité réglementaire.
+--   • audit_log : qui a fait quoi quand (login, création alerte, modif
+--     stock, validation donneur). Indispensable pour audit institutionnel.
+--
+-- Les FOREIGN KEY garantissent la cohérence : impossible d'avoir une
+-- alerte sans hôpital, une réponse sans donneur, etc. Les INDEX accélèrent
+-- les requêtes fréquentes (recherche par groupe, par disponibilité, par
+-- géolocalisation).
+-- =====================================================================
