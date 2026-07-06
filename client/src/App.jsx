@@ -24,6 +24,9 @@ import MesAlertes from './pages/donneur/MesAlertes.jsx';
 import MonProfil from './pages/donneur/MonProfil.jsx';
 import MonHistorique from './pages/donneur/MonHistorique.jsx';
 
+// Assistant IA
+import AssistantPage from './pages/assistant/AssistantPage.jsx';
+
 import { useAuth } from './contexts/AuthContext.jsx';
 
 function HomeRedirect() {
@@ -75,6 +78,17 @@ export default function App() {
         <Route path="/staff/alertes" element={<Alertes />} />
         <Route path="/staff/alertes/:id" element={<AlerteDetail />} />
         <Route path="/staff/cnts" element={<CntsNational />} />
+      </Route>
+
+      {/* Assistant IA — accessible à tout utilisateur authentifié */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/assistant" element={<AssistantPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,7 +1,5 @@
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
 import Logo from '../components/Logo.jsx';
-import AiSidebar from '../components/AiSidebar.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 const navDonneur = [
@@ -21,7 +19,6 @@ const navStaff = [
 const navCnts = [...navStaff, { to: '/staff/cnts', label: 'Vue nationale CNTS' }];
 
 export default function AppLayout() {
-  const [aiOpen, setAiOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -66,13 +63,16 @@ export default function AppLayout() {
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setAiOpen((v) => !v)}
-              className="rounded-lg border border-red-900/50 bg-zinc-900 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-950/30 hover:text-red-300"
+            <NavLink
+              to="/assistant"
+              className={({ isActive }) =>
+                `rounded-lg border border-red-900/50 bg-zinc-900 px-3 py-2 text-sm font-medium hover:bg-red-950/30 hover:text-red-300 ${
+                  isActive ? 'text-red-300' : 'text-red-400'
+                }`
+              }
             >
               Assistant IA
-            </button>
+            </NavLink>
             <div className="hidden text-right text-xs text-zinc-400 sm:block">
               <p className="font-medium text-zinc-200">{user?.email}</p>
               <button onClick={handleLogout} className="hover:text-red-300">Se déconnecter</button>
@@ -104,21 +104,15 @@ export default function AppLayout() {
       </header>
 
       <div className="relative flex">
-        <main
-          className={`mx-auto min-h-[calc(100vh-64px)] w-full max-w-[1600px] flex-1 px-4 py-6 transition-[padding] ${aiOpen ? 'md:pr-[380px]' : ''}`}
-        >
+        <main className="mx-auto min-h-[calc(100vh-64px)] w-full max-w-[1600px] flex-1 px-4 py-6">
           <Outlet />
         </main>
-        <AiSidebar open={aiOpen} onToggle={() => setAiOpen(false)} />
-        {!aiOpen && (
-          <button
-            type="button"
-            onClick={() => setAiOpen(true)}
-            className="fixed bottom-6 right-4 z-40 rounded-full border border-red-900/40 bg-blood px-4 py-3 text-sm font-medium text-white shadow-lg shadow-blood/20 hover:bg-blood-dark md:hidden"
-          >
-            Assistant
-          </button>
-        )}
+        <Link
+          to="/assistant"
+          className="fixed bottom-6 right-4 z-40 rounded-full border border-red-900/40 bg-blood px-4 py-3 text-sm font-medium text-white shadow-lg shadow-blood/20 hover:bg-blood-dark md:hidden"
+        >
+          Assistant
+        </Link>
       </div>
     </div>
   );
