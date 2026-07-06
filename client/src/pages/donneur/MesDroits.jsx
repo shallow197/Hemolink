@@ -1,29 +1,23 @@
 // =====================================================================
-// MesDroits.jsx — Espace RGPD du donneur (Loi 2008-12 Sénégal + RGPD)
+// MesDroits.jsx — Information pédagogique sur vos droits RGPD
 // =====================================================================
-// Trois actions disponibles, avec confirmation explicite :
-//   1. Exporter mes données   → GET /api/donneurs/me/export (téléchargement JSON)
-//   2. Anonymiser mon compte  → POST /api/donneurs/me/anonymiser
-//   3. Supprimer définitivement → DELETE /api/donneurs/me
+// Cette page présente uniquement les DROITS. Les actions de gestion de
+// compte (désactivation, anonymisation, suppression) sont dans MonProfil.
+// Seul le bouton "Exporter mes données" reste ici (non destructif + droit
+// à la portabilité).
 // =====================================================================
 
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { fetchJson, getToken } from '../../api';
-import { useAuth } from '../../contexts/AuthContext.jsx';
+import { Link } from 'react-router-dom';
+import { getToken } from '../../api';
 
 export default function MesDroits() {
-  const { logout, user } = useAuth();
-  const nav = useNavigate();
-  const [confirmation, setConfirmation] = useState(null); // 'anonymiser' | 'supprimer' | null
-  const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
+  const [err, setErr] = useState(null);
 
-  // --- Action 1 : Export JSON (droit à la portabilité) ---
   async function exporter() {
-    setErr(null); setMsg(null); setLoading(true);
+    setLoading(true); setErr(null); setMsg(null);
     try {
       const res = await fetch('/api/donneurs/me/export', {
         headers: { Authorization: `Bearer ${getToken()}` },
@@ -34,186 +28,129 @@ export default function MesDroits() {
       const a = document.createElement('a');
       a.href = url;
       a.download = `hemolink-mes-donnees-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
       setMsg('Vos données ont été téléchargées au format JSON.');
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
   }
 
-  // --- Action 2 : Anonymisation (option B - recommandée) ---
-  async function anonymiser() {
-    setErr(null); setLoading(true);
-    try {
-      const r = await fetchJson('/api/donneurs/me/anonymiser', { method: 'POST' });
-      alert(r.message || 'Votre compte a été anonymisé.');
-      await logout();
-      nav('/accueil', { replace: true });
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setLoading(false);
-      setConfirmation(null);
-    }
-  }
-
-  // --- Action 3 : Suppression totale (option A - droit à l'oubli) ---
-  async function supprimer() {
-    setErr(null); setLoading(true);
-    try {
-      const r = await fetchJson('/api/donneurs/me', { method: 'DELETE' });
-      alert(r.message || 'Votre compte a été supprimé.');
-      await logout();
-      nav('/accueil', { replace: true });
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setLoading(false);
-      setConfirmation(null);
-    }
-  }
-
-  const motCle = user?.donneur ? (user.donneur.nom || '').toUpperCase() : 'SUPPRIMER';
+  const droits = [
+    { icone: '👁', titre: 'Droit d\'accès', desc: 'Vous pouvez à tout moment consulter l\'ensemble des données vous concernant depuis votre espace personnel.', base: 'Loi 2008-12 art. 62 · RGPD art. 15' },
+    { icone: '✏️', titre: 'Droit de rectification', desc: 'Vous pouvez corriger toute information (téléphone, adresse, disponibilité). Le groupe sanguin ne peut être modifié sans validation par le CNTS.', base: 'Loi 2008-12 art. 68 · RGPD art. 16' },
+    { icone: '📥', titre: 'Droit à la portabilité', desc: 'Vous pouvez télécharger l\'intégralité de vos données dans un format lisible et réutilisable (JSON), pour les transférer à un autre service.', base: 'Loi 2008-12 art. 70 · RGPD art. 20' },
+    { icone: '⛔', titre: 'Droit d\'opposition', desc: 'Vous pouvez à tout moment cesser de recevoir des alertes (mode "indisponible") sans supprimer votre compte.', base: 'Loi 2008-12 art. 69 · RGPD art. 21' },
+    { icone: '🕰', titre: 'Droit à l\'oubli', desc: 'Vous pouvez demander l\'anonymisation ou la suppression complète de vos données. La procédure se fait depuis "Mon profil".', base: 'Loi 2008-12 art. 17 · RGPD art. 17' },
+    { icone: '🔒', titre: 'Droit à la sécurité', desc: 'Vos données sont chiffrées, sauvegardées et tracées via un journal d\'audit. Toute action sensible est horodatée.', base: 'Loi 2008-12 art. 71 · RGPD art. 32' },
+  ];
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Mes droits sur mes données</h2>
-        <p className="text-sm text-gray-500">
-          Vous avez le contrôle total. Conformément à la <strong>Loi 2008-12 du Sénégal</strong> et au <strong>RGPD</strong>,
-          trois actions sont à votre disposition. <Link to="/cgu" className="font-semibold text-blood hover:underline">Voir les CGU →</Link>
+        <p className="mt-1 text-sm text-gray-500">
+          Conformément à la <strong>Loi 2008-12 du Sénégal</strong> et au <strong>RGPD</strong>,
+          vous disposez de droits sur vos données personnelles. Voici lesquels.
         </p>
+      </div>
+
+      {/* Bandeau réglementaire */}
+      <div className="rounded-2xl border-2 border-blood/40 bg-red-50/40 p-5">
+        <p className="text-sm font-semibold text-blood">🇸🇳 Cadre légal sénégalais</p>
+        <p className="mt-2 text-sm text-gray-700">
+          La <strong>Loi n° 2008-12 du 25 janvier 2008</strong> sur la protection des données personnelles,
+          administrée par la <strong>Commission de Protection des Données Personnelles (CDP)</strong>,
+          encadre le traitement de vos données médicales par HemoLink.
+        </p>
+        <p className="mt-2 text-xs text-gray-500">
+          En cas de désaccord, vous pouvez saisir directement la CDP — <a href="https://www.cdp.sn" target="_blank" rel="noreferrer" className="font-semibold text-blood underline">www.cdp.sn</a>.
+        </p>
+      </div>
+
+      {/* Grille des 6 droits */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {droits.map((d) => (
+          <div key={d.titre} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-2xl">{d.icone}</div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-gray-900">{d.titre}</h3>
+                <p className="mt-1 text-sm text-gray-600">{d.desc}</p>
+                <p className="mt-3 text-[10px] uppercase tracking-wide text-gray-400">Base légale : {d.base}</p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {err && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{err}</div>}
       {msg && <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{msg}</div>}
 
-      {/* OPTION 1 — EXPORT */}
-      <article className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 text-2xl">📥</div>
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-blue-800">Exporter mes données</h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Téléchargez l'intégralité de vos données HemoLink (profil, historique de dons, alertes reçues)
-              dans un fichier <strong>JSON réutilisable</strong>. Aucun impact sur votre compte.
-            </p>
-            <p className="mt-2 text-xs text-gray-400">Base légale : Loi 2008-12 art. 70 — RGPD art. 20</p>
-            <button
-              onClick={exporter}
-              disabled={loading}
-              className="mt-4 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? 'Préparation…' : '📥 Télécharger mes données (JSON)'}
-            </button>
-          </div>
-        </div>
-      </article>
-
-      {/* OPTION 2 — ANONYMISATION (RECOMMANDÉE) */}
-      <article className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/40 p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-2xl">👤</div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-emerald-800">Anonymiser mon compte</h3>
-              <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Recommandé</span>
+      {/* Actions : téléchargements */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border-2 border-blue-300 bg-blue-50/40 p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-200 text-2xl">📥</div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-blue-900">Exporter mes données</h3>
+              <p className="mt-1 text-sm text-gray-700">
+                Téléchargez au format <strong>JSON</strong> l'intégralité de vos données HemoLink : profil,
+                historique de dons, alertes reçues. Réutilisable dans un autre service.
+              </p>
+              <button
+                onClick={exporter}
+                disabled={loading}
+                className="mt-4 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+              >
+                {loading ? 'Préparation…' : '📥 Télécharger mes données'}
+              </button>
             </div>
-            <p className="mt-1 text-sm text-gray-700">
-              Votre compte est supprimé. <strong>Vos données identitaires (nom, téléphone, géolocalisation) sont effacées
-              irrémédiablement</strong>, mais l'historique anonyme de vos dons reste utile aux statistiques nationales du CNTS.
-              <span className="block mt-2 italic">C'est l'option qui concilie votre droit à l'oubli et la mission de santé publique.</span>
-            </p>
-            <p className="mt-2 text-xs text-gray-400">Base légale : Loi 2008-12 art. 17 — RGPD art. 17</p>
-            <button
-              onClick={() => { setConfirmation('anonymiser'); setConfirmText(''); }}
-              disabled={loading}
-              className="mt-4 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
-            >
-              👤 Anonymiser mon compte
-            </button>
           </div>
         </div>
-      </article>
 
-      {/* OPTION 3 — SUPPRESSION TOTALE */}
-      <article className="rounded-2xl border-2 border-red-300 bg-red-50/40 p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-200 text-2xl">🗑</div>
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-red-800">Supprimer définitivement mon compte</h3>
-            <p className="mt-1 text-sm text-gray-700">
-              Votre compte ET toutes vos données médicales (historique de dons, réponses aux alertes) sont
-              <strong> effacés définitivement</strong>. Action <strong>irréversible</strong>.
-              <span className="block mt-2 italic text-red-700">⚠ Vous perdez la traçabilité de vos anciens dons (utile en cas d'enquête post-transfusion).</span>
-            </p>
-            <p className="mt-2 text-xs text-gray-400">Base légale : Loi 2008-12 art. 17 — RGPD art. 17 (droit à l'oubli)</p>
-            <button
-              onClick={() => { setConfirmation('supprimer'); setConfirmText(''); }}
-              disabled={loading}
-              className="mt-4 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60"
-            >
-              🗑 Supprimer définitivement mon compte
-            </button>
+        <div className="rounded-2xl border-2 border-gray-300 bg-gray-50 p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-200 text-2xl">📄</div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-gray-900">Conditions Générales & Politique de confidentialité</h3>
+              <p className="mt-1 text-sm text-gray-700">
+                Consultez ou téléchargez le document juridique complet : engagements HemoLink,
+                durées de conservation, destinataires, procédures.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  to="/cgu"
+                  className="rounded-xl bg-gray-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-900"
+                >
+                  📄 Lire les CGU en ligne
+                </Link>
+                <a
+                  href="/HemoLink-CGU.docx"
+                  download
+                  className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                >
+                  💾 Télécharger (Word)
+                </a>
+              </div>
+            </div>
           </div>
         </div>
-      </article>
+      </div>
 
-      <p className="pt-4 text-xs text-gray-500">
-        Pour toute question, contactez notre Délégué à la Protection des Données :
-        <a href="mailto:dpo@hemolink.sn" className="ml-1 font-semibold text-blood">dpo@hemolink.sn</a>
+      {/* Renvoi vers le profil */}
+      <div className="rounded-2xl border border-amber-300 bg-amber-50/40 p-5">
+        <p className="text-sm font-semibold text-amber-800">⚙️ Vous voulez agir sur votre compte ?</p>
+        <p className="mt-2 text-sm text-gray-700">
+          La désactivation temporaire, l'anonymisation ou la suppression définitive de votre compte
+          s'effectuent depuis la page <Link to="/mon-espace/profil" className="font-semibold text-blood underline">Mon profil</Link>,
+          section « Gestion du compte » (en bas).
+        </p>
+      </div>
+
+      <p className="text-center text-xs text-gray-500">
+        Pour toute question, contactez notre Délégué à la Protection des Données :{' '}
+        <a href="mailto:dpo@hemolink.sn" className="font-semibold text-blood">dpo@hemolink.sn</a>
       </p>
-
-      {/* MODALE DE CONFIRMATION */}
-      {confirmation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-900">
-              {confirmation === 'anonymiser' ? '👤 Confirmer l\'anonymisation' : '🗑 Confirmer la suppression définitive'}
-            </h3>
-            <p className="mt-3 text-sm text-gray-700">
-              {confirmation === 'anonymiser'
-                ? 'Votre identité va être effacée de HemoLink. Cette action est irréversible.'
-                : 'Votre compte ET toutes vos données vont être supprimés définitivement. Cette action est irréversible.'}
-            </p>
-            <p className="mt-3 text-xs text-gray-500">
-              Pour confirmer, tapez votre nom de famille en MAJUSCULES : <strong className="text-gray-900">{motCle}</strong>
-            </p>
-            <input
-              type="text"
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              autoFocus
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase tracking-wider text-gray-900"
-              placeholder={motCle}
-            />
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmation(null)}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                disabled={loading || confirmText.trim() !== motCle}
-                onClick={() => (confirmation === 'anonymiser' ? anonymiser() : supprimer())}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50 ${
-                  confirmation === 'anonymiser' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
-                }`}
-              >
-                {loading ? 'En cours…' : (confirmation === 'anonymiser' ? 'Anonymiser' : 'Supprimer définitivement')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

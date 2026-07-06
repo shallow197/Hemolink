@@ -13,11 +13,16 @@ import { usePoll } from '../../hooks/usePoll.js';
 
 export default function Alertes() {
   const [rows, setRows] = useState([]);
+  const [stats, setStats] = useState([]);
   const [filtre, setFiltre] = useState('');
 
   const load = useCallback(async () => {
-    const data = await fetchJson('/api/alertes');
+    const [data, s] = await Promise.all([
+      fetchJson('/api/alertes'),
+      fetchJson('/api/alertes/stats-mensuelles').catch(() => []),
+    ]);
     setRows(data);
+    setStats(s || []);
   }, []);
 
   useEffect(() => {
@@ -36,6 +41,8 @@ export default function Alertes() {
   return (
     <div className="hl-page">
       <PageHeader title="Historique des alertes" subtitle="Suivi des campagnes de recrutement de donneurs" />
+
+      <StatsMensuelles stats={stats} />
 
       <div className="flex flex-wrap gap-2">
         <FilterChip active={!filtre} onClick={() => setFiltre('')}>
@@ -94,6 +101,58 @@ export default function Alertes() {
           </tbody>
         </table>
       </DataTable>
+    </div>
+  );
+}
+
+// =====================================================================
+// Graph résolution mensuelle (6 derniers mois)
+// =====================================================================
+function StatsMensuelles({ stats }) {
+  if (!stats || stats.length === 0) return null;
+  const maxTotal = Math.max(1, ...stats.map(s => Number(s.total)));
+  const totalGlobal = stats.reduce((s, x) => s + Number(x.total), 0);
+  const resGlobal = stats.reduce((s, x) => s + Number(x.resolues), 0);
+  const tauxGlobal = totalGlobal ? Math.round((resGlobal / totalGlobal) * 100) : 0;
+
+  const moisFmt = (m) => {
+    const [y, mm] = m.split('-');
+    const names = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+    return `${names[Number(mm) - 1]} ${y.slice(2)}`;
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold text-brand-navy">Activité — 6 derniers mois</h3>
+          <p className="text-xs text-gray-500">Taux de résolution global : <strong className="text-emerald-600">{tauxGlobal}%</strong> ({resGlobal}/{totalGlobal})</p>
+        </div>
+        <div className="flex gap-4 text-xs">
+          <span className="flex items-center gap-1"><span className="h-3 w-3 rounded bg-amber-400" /> Total</span>
+          <span className="flex items-center gap-1"><span className="h-3 w-3 rounded bg-emerald-500" /> Résolues</span>
+        </div>
+      </div>
+      <div className="flex items-end justify-around gap-2 border-b border-gray-100 pb-3">
+        {stats.map(s => {
+          const total = Number(s.total);
+          const res = Number(s.resolues);
+          const hTot = (total / maxTotal) * 100;
+          const hRes = (res / maxTotal) * 100;
+          const taux = total ? Math.round((res / total) * 100) : 0;
+          return (
+            <div key={s.mois} className="flex flex-1 flex-col items-center gap-1" title={`${taux}% résolues`}>
+              <p className="text-[10px] font-bold text-emerald-700">{taux}%</p>
+              <div className="relative flex h-24 w-full max-w-[40px] items-end justify-center gap-0.5">
+                <div className="w-4 rounded-t bg-amber-400" style={{ height: `${hTot}%` }} />
+                <div className="w-4 rounded-t bg-emerald-500" style={{ height: `${hRes}%` }} />
+              </div>
+              <p className="mt-1 text-[10px] text-gray-500">{moisFmt(s.mois)}</p>
+              <p className="text-[10px] font-bold text-gray-700">{total}</p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

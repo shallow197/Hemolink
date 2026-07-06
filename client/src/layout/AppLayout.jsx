@@ -6,6 +6,7 @@ import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import Logo from '../components/Logo.jsx';
 import AiSidebar from '../components/AiSidebar.jsx';
+import NotificationBell from '../components/NotificationBell.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 const navDonneur = [
@@ -71,6 +72,7 @@ export default function AppLayout() {
             ))}
           </nav>
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <button
               type="button"
               onClick={() => setAiOpen((v) => !v)}

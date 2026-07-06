@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchJson } from '../../api';
 import { SectionHeading } from '../../components/ui.jsx';
+import ActualitesCNTS from '../../components/ActualitesCNTS.jsx';
 
 export default function Landing() {
   const [kpis, setKpis] = useState(null);
@@ -149,6 +150,18 @@ export default function Landing() {
             Suite à notre rencontre avec M. Serigne Kote (CNTS Dakar), une demande officielle de collaboration
             est en cours. HemoLink est conçu dès son architecture pour être <strong>adopté par le CNTS</strong>.
           </p>
+        </div>
+      </section>
+
+      {/* Actualités CNTS */}
+      <section>
+        <SectionHeading
+          label="En temps réel"
+          title="Suivez l'actualité du don de sang au Sénégal"
+          className="mb-8 text-center"
+        />
+        <div className="mx-auto max-w-3xl">
+          <ActualitesCNTS />
         </div>
       </section>
 

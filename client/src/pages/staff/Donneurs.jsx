@@ -74,6 +74,9 @@ export default function Donneurs() {
         }
       />
 
+      {/* Camembert répartition groupes sanguins */}
+      <RepartitionGroupes rows={rows} />
+
       <FilterBar>
         <select value={filtreGs} onChange={(e) => setFiltreGs(e.target.value)} className={filterCls}>
           <option value="">Tous les groupes</option>
@@ -202,4 +205,67 @@ function DispoBadge({ statut }) {
   };
   const l = { disponible: 'Disponible', indisponible: 'Indisponible', en_attente: 'En attente' };
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${m[statut] || 'bg-gray-100 text-gray-600'}`}>{l[statut] || statut}</span>;
+}
+
+// =====================================================================
+// Camembert SVG des groupes sanguins
+// =====================================================================
+function RepartitionGroupes({ rows }) {
+  if (!rows || rows.length === 0) return null;
+  const counts = {};
+  rows.forEach(r => { counts[r.groupe_sanguin] = (counts[r.groupe_sanguin] || 0) + 1; });
+  const groupes = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'];
+  const total = rows.length;
+  const colors = { 'O+': '#F97316', 'A+': '#3B82F6', 'B+': '#10B981', 'AB+': '#A855F7', 'O-': '#DC2626', 'A-': '#1D4ED8', 'B-': '#047857', 'AB-': '#7C3AED' };
+
+  // Calcul des arcs
+  let cumAngle = 0;
+  const arcs = groupes.map(g => {
+    const val = counts[g] || 0;
+    const angle = (val / total) * 360;
+    const start = cumAngle;
+    const end = cumAngle + angle;
+    cumAngle = end;
+    return { g, val, angle, start, end, color: colors[g] };
+  }).filter(a => a.val > 0);
+
+  const cx = 80, cy = 80, r = 70;
+  const path = (a) => {
+    if (a.angle >= 360) return `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`;
+    const startRad = (a.start - 90) * Math.PI / 180;
+    const endRad = (a.end - 90) * Math.PI / 180;
+    const x1 = cx + r * Math.cos(startRad), y1 = cy + r * Math.sin(startRad);
+    const x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad);
+    const large = a.angle > 180 ? 1 : 0;
+    return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <h3 className="mb-4 text-sm font-bold text-brand-navy">Répartition par groupe sanguin ({total} donneurs)</h3>
+      <div className="flex flex-wrap items-center gap-6">
+        <svg viewBox="0 0 160 160" className="h-40 w-40 shrink-0">
+          {arcs.map((a) => (
+            <path key={a.g} d={path(a)} fill={a.color} stroke="#fff" strokeWidth="2" />
+          ))}
+          <circle cx={cx} cy={cy} r="32" fill="#fff" />
+          <text x={cx} y={cy - 4} textAnchor="middle" className="fill-brand-navy" fontSize="18" fontWeight="800">{total}</text>
+          <text x={cx} y={cy + 12} textAnchor="middle" fill="#94a3b8" fontSize="8">donneurs</text>
+        </svg>
+        <div className="grid flex-1 min-w-[220px] grid-cols-2 gap-2 text-xs">
+          {groupes.map(g => {
+            const val = counts[g] || 0;
+            const pct = total ? Math.round((val / total) * 100) : 0;
+            return (
+              <div key={g} className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded" style={{ background: colors[g] }} />
+                <span className="font-bold" style={{ color: colors[g] }}>{g}</span>
+                <span className="text-gray-500">{val} ({pct}%)</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
