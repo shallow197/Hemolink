@@ -7,9 +7,10 @@
 //   3. Nettoyer le token expiré automatiquement (401)
 // =====================================================================
 
-// BASE = '' car le proxy Vite redirige /api vers http://localhost:4000
+// En dev, on utilise le proxy Vite (BASE = '') qui redirige /api vers localhost:4000.
+// En prod (Vercel), on utilise l'URL absolue du backend Railway via VITE_API_URL.
 // en dev. En prod, on mettrait l'URL absolue de l'API.
-const BASE = '';
+const BASE = import.meta.env.VITE_API_URL || '';
 
 // Clé localStorage pour stocker le JWT (persiste entre les rechargements)
 const TOKEN_KEY = 'hemolink_token';

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PageHeader, KpiCard, Panel } from '../../components/ui.jsx';
 import { fetchJson, getToken } from '../../api';
+import ActualitesCNTS from '../../components/ActualitesCNTS.jsx';
 
 export default function CntsNational() {
   const [data, setData] = useState(null);
@@ -110,6 +111,9 @@ export default function CntsNational() {
           </div>
         </Panel>
       </div>
+
+      {/* Actualités officielles CNTS */}
+      <ActualitesCNTS />
     </div>
   );
 }

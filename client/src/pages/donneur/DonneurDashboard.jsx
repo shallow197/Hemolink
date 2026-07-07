@@ -8,18 +8,26 @@ export default function DonneurDashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [mes, setMes] = useState([]);
+  const [proches, setProches] = useState([]);
   const [err, setErr] = useState(null);
 
   useEffect(() => {
     Promise.all([
       fetchJson('/api/donneurs/me'),
       fetchJson('/api/alertes/mes'),
+      fetchJson('/api/donneurs/me/hopitaux-proches').catch(() => []),
     ])
-      .then(([d, a]) => { setData(d); setMes(a); })
+      .then(([d, a, p]) => { setData(d); setMes(a); setProches(p || []); })
       .catch((e) => setErr(e.message));
   }, []);
 
   const alertesEnAttente = mes.filter((a) => a.reponse === 'pas_repondu' && a.statut === 'en_cours');
+
+  // Calcul des badges
+  const badges = calculerBadges(data, mes);
+
+  // Compte à rebours prochain don
+  const compteRebours = calculerCompteRebours(data);
 
   return (
     <div className="hl-page pb-12">
@@ -81,6 +89,17 @@ export default function DonneurDashboard() {
           </ul>
         </div>
       )}
+
+      {/* Compte à rebours prochain don + Top hôpitaux */}
+      {data && (
+        <div className="grid gap-6 md:grid-cols-2">
+          <CompteRebours cr={compteRebours} sexe={data?.donneur?.sexe} />
+          <TopHopitaux liste={proches} />
+        </div>
+      )}
+
+      {/* Badges gamifiés */}
+      {badges.length > 0 && <BadgesGrid badges={badges} />}
 
       <section className="hl-panel">
         <div className="hl-panel-header flex items-center justify-between border-b border-slate-100 bg-white/40">
@@ -151,4 +170,154 @@ function ReponseBadge({ reponse }) {
   };
   const v = map[reponse] || map.pas_repondu;
   return <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold border shadow-sm ${v.c}`}>{v.l}</span>;
+}
+
+// =====================================================================
+// HELPERS pour badges, compte à rebours, timeline
+// =====================================================================
+
+function calculerBadges(data, mes) {
+  if (!data) return [];
+  const nb = data.donneur.nombre_dons || data.historique?.length || 0;
+  const groupe = data.donneur.groupe_sanguin || '';
+  const acceptes = mes.filter(a => a.reponse === 'accepte').length;
+  const badges = [];
+
+  if (nb >= 1) badges.push({ icone: '🩸', titre: 'Premier don', desc: 'Vous avez sauvé des vies', unlocked: true });
+  else badges.push({ icone: '🩸', titre: 'Premier don', desc: 'Bientôt à débloquer', unlocked: false });
+
+  if (nb >= 3) badges.push({ icone: '❤️', titre: 'Donneur régulier', desc: `${nb} dons effectués`, unlocked: true });
+  else badges.push({ icone: '❤️', titre: 'Donneur régulier', desc: `${nb} / 3 dons`, unlocked: false });
+
+  if (nb >= 5) badges.push({ icone: '🌟', titre: 'Ambassadeur du don', desc: `${nb} dons — merci !`, unlocked: true });
+  else badges.push({ icone: '🌟', titre: 'Ambassadeur du don', desc: `${nb} / 5 dons`, unlocked: false });
+
+  if (groupe.endsWith('-')) badges.push({ icone: '💎', titre: 'Groupe rare', desc: `${groupe} — précieux`, unlocked: true });
+  if (groupe === 'O-') badges.push({ icone: '👑', titre: 'Donneur universel', desc: 'O- compatible avec tous', unlocked: true });
+
+  if (acceptes >= 1) badges.push({ icone: '⚡', titre: 'Réactif', desc: `${acceptes} alertes acceptées`, unlocked: true });
+
+  return badges;
+}
+
+function calculerCompteRebours(data) {
+  if (!data || !data.donneur?.derniere_date_don) {
+    return { jours: 0, pct: 100, message: 'Vous pouvez donner dès maintenant !', ready: true };
+  }
+  const delai = data.donneur.sexe === 'femme' ? 120 : 90;
+  const last = new Date(data.donneur.derniere_date_don);
+  const next = new Date(last);
+  next.setDate(next.getDate() + delai);
+  const now = new Date();
+  const diff = Math.ceil((next - now) / (1000 * 60 * 60 * 24));
+  if (diff <= 0) return { jours: 0, pct: 100, message: 'Vous pouvez donner dès maintenant !', ready: true, nextDate: next };
+  const pct = Math.max(0, Math.min(100, ((delai - diff) / delai) * 100));
+  return {
+    jours: diff,
+    pct,
+    ready: false,
+    nextDate: next,
+    message: `Vous pourrez redonner dans ${diff} jour${diff > 1 ? 's' : ''}.`,
+  };
+}
+
+function CompteRebours({ cr, sexe }) {
+  const circumference = 2 * Math.PI * 45;
+  const dash = (cr.pct / 100) * circumference;
+
+  return (
+    <div className={`rounded-3xl border-2 p-6 ${cr.ready ? 'border-emerald-400 bg-emerald-50' : 'border-blood/30 bg-red-50/40'}`}>
+      <div className="flex items-center gap-6">
+        <div className="relative h-32 w-32 shrink-0">
+          <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" strokeWidth="8" />
+            <circle
+              cx="50" cy="50" r="45" fill="none"
+              stroke={cr.ready ? '#059669' : '#990011'}
+              strokeWidth="8"
+              strokeDasharray={`${dash} ${circumference}`}
+              strokeLinecap="round"
+              className="transition-all duration-1000"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <p className={`font-display text-3xl font-extrabold ${cr.ready ? 'text-emerald-700' : 'text-blood'}`}>
+              {cr.ready ? '✓' : cr.jours}
+            </p>
+            {!cr.ready && <p className="text-[10px] uppercase tracking-wide text-gray-500">jours</p>}
+          </div>
+        </div>
+        <div className="flex-1">
+          <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Prochain don possible</p>
+          <p className={`mt-1 text-lg font-bold ${cr.ready ? 'text-emerald-800' : 'text-brand-navy'}`}>
+            {cr.message}
+          </p>
+          {cr.nextDate && (
+            <p className="mt-1 text-xs text-gray-500">Date estimée : {cr.nextDate.toLocaleDateString('fr-FR')}</p>
+          )}
+          <p className="mt-3 text-xs text-gray-600">
+            Délai physiologique : {sexe === 'femme' ? '4 mois' : '3 mois'} entre 2 dons (règle CNTS).
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BadgesGrid({ badges }) {
+  if (!badges.length) return null;
+  return (
+    <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-bold text-brand-navy">🏆 Mes badges</h3>
+        <p className="text-xs text-gray-500">{badges.filter(b => b.unlocked).length} / {badges.length} débloqués</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {badges.map((b) => (
+          <div key={b.titre} className={`rounded-2xl border-2 p-3 text-center transition-all ${
+            b.unlocked
+              ? 'border-blood/40 bg-red-50 shadow-sm'
+              : 'border-gray-200 bg-gray-50 opacity-50 grayscale'
+          }`}>
+            <div className="text-3xl">{b.icone}</div>
+            <p className="mt-1 text-xs font-bold text-brand-navy">{b.titre}</p>
+            <p className="mt-1 text-[10px] text-gray-500">{b.desc}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TopHopitaux({ liste }) {
+  if (!liste || liste.length === 0) return null;
+  return (
+    <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <h3 className="mb-4 text-lg font-bold text-brand-navy">📍 Où puis-je donner ?</h3>
+      <p className="mb-4 text-xs text-gray-500">Les hôpitaux les plus proches de vous. Cliquez pour l'itinéraire.</p>
+      <div className="space-y-3">
+        {liste.map((h, i) => (
+          <a
+            key={h.id}
+            href={`https://www.google.com/maps/dir/?api=1&destination=${h.latitude},${h.longitude}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-slate-50/60 p-3 hover:bg-slate-100"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blood text-white font-bold">
+              {i + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-brand-navy truncate">{h.nom}</p>
+              <p className="text-xs text-gray-500">{h.ville} · {h.telephone}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-bold text-blood">{h.distance_km.toFixed(1)}</p>
+              <p className="text-[10px] uppercase text-gray-400">km</p>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
 }

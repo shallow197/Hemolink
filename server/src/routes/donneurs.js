@@ -277,6 +277,42 @@ router.patch('/:id', requireAuth(), requireRole('hopital', 'cnts', 'admin'), val
   }
 });
 
+// ---------------------------------------------------------------
+// GET /api/donneurs/me/hopitaux-proches  → top 3 hôpitaux les plus proches
+// ---------------------------------------------------------------
+router.get('/me/hopitaux-proches', requireAuth(), requireRole('donneur'), async (req, res) => {
+  try {
+    const [[d]] = await pool.query(
+      'SELECT id, latitude, longitude FROM donneurs WHERE user_id = ?',
+      [req.user.id]
+    );
+    if (!d || d.latitude == null || d.longitude == null) return res.json([]);
+
+    const [hopitaux] = await pool.query(
+      `SELECT id, nom, ville, type, telephone, latitude, longitude
+       FROM hopitaux WHERE service_transfusion = 1 AND latitude IS NOT NULL AND longitude IS NOT NULL`
+    );
+
+    // Haversine simple inline
+    const R = 6371;
+    const toRad = (x) => (x * Math.PI) / 180;
+    const lat1 = Number(d.latitude), lon1 = Number(d.longitude);
+    const withDist = hopitaux.map((h) => {
+      const dLat = toRad(Number(h.latitude) - lat1);
+      const dLon = toRad(Number(h.longitude) - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(Number(h.latitude))) * Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return { ...h, distance_km: R * c };
+    });
+
+    withDist.sort((a, b) => a.distance_km - b.distance_km);
+    res.json(withDist.slice(0, 3));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erreur hôpitaux proches' });
+  }
+});
+
 // =====================================================================
 // BLOC RGPD — Droits du donneur (Loi 2008-12 Sénégal + RGPD)
 // =====================================================================

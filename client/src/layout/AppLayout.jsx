@@ -3,9 +3,8 @@
 // =====================================================================
 
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
 import Logo from '../components/Logo.jsx';
-import AiSidebar from '../components/AiSidebar.jsx';
+import NotificationBell from '../components/NotificationBell.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 const navDonneur = [
@@ -30,7 +29,6 @@ const navCnts = [
 ];
 
 export default function AppLayout() {
-  const [aiOpen, setAiOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -71,14 +69,16 @@ export default function AppLayout() {
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setAiOpen((v) => !v)}
-              className={`hl-btn-secondary border-blood/20 py-2 text-blood ${aiOpen ? 'bg-blood-light ring-2 ring-blood/20' : ''}`}
+            <NotificationBell />
+            <NavLink
+              to="/assistant"
+              className={({ isActive }) =>
+                `hl-btn-secondary border-blood/20 py-2 text-blood ${isActive ? 'bg-blood-light ring-2 ring-blood/20' : ''}`
+              }
             >
               <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blood" aria-hidden />
               Assistant IA
-            </button>
+            </NavLink>
             <div className="hidden text-right text-xs sm:block">
               <p className="max-w-[140px] truncate font-medium text-brand-navy">{user?.email}</p>
             </div>
@@ -101,23 +101,17 @@ export default function AppLayout() {
       </header>
 
       <div className="relative flex">
-        <main
-          className={`hl-app-main flex-1 transition-[padding] ${aiOpen ? 'md:pr-[400px]' : ''}`}
-        >
-          <div className={`hl-app-inner mx-auto w-full max-w-[1600px] px-4 py-8 ${aiOpen ? '' : ''}`}>
+        <main className="hl-app-main flex-1">
+          <div className="hl-app-inner mx-auto w-full max-w-[1600px] px-4 py-8">
             <Outlet />
           </div>
         </main>
-        <AiSidebar open={aiOpen} onToggle={() => setAiOpen(false)} />
-        {!aiOpen && (
-          <button
-            type="button"
-            onClick={() => setAiOpen(true)}
-            className="fixed bottom-6 right-4 z-40 hl-btn-primary rounded-full px-5 py-3 shadow-glow md:hidden"
-          >
-            Assistant IA
-          </button>
-        )}
+        <Link
+          to="/assistant"
+          className="fixed bottom-6 right-4 z-40 hl-btn-primary rounded-full px-5 py-3 shadow-glow md:hidden"
+        >
+          Assistant IA
+        </Link>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PageHeader, KpiCard, Panel, DataTable, EmptyState } from '../../components/ui.jsx';
 import { fetchJson } from '../../api';
 
@@ -22,6 +22,9 @@ export default function MonHistorique() {
         title="Mon historique de dons"
         subtitle="Traçabilité complète de vos dons — données issues du CNTS"
       />
+
+      {/* Bandeau "Vies sauvées" animé */}
+      <BandeauVies dons={total} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <KpiCard label="Dons effectués" value={total} accent="border-l-blood" />
@@ -84,6 +87,46 @@ export default function MonHistorique() {
           </DataTable>
         )}
       </Panel>
+    </div>
+  );
+}
+
+// =====================================================================
+// Bandeau "Vies sauvées" avec animation
+// =====================================================================
+function BandeauVies({ dons }) {
+  const target = dons * 3;
+  const [count, setCount] = useState(0);
+  const done = useRef(false);
+
+  useEffect(() => {
+    if (done.current) return;
+    done.current = true;
+    const dur = 1400;
+    const start = performance.now();
+    const step = (t) => {
+      const p = Math.min(1, (t - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setCount(Math.round(eased * target));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target]);
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl border-2 border-blood/30 bg-gradient-to-br from-blood via-blood-dark to-brand-navy p-8 text-white shadow-xl">
+      <div className="absolute -right-8 -top-8 text-[200px] opacity-10 leading-none">❤️</div>
+      <div className="relative">
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-white/70">Impact vital</p>
+        <div className="mt-2 flex items-baseline gap-3">
+          <p className="font-display text-6xl font-extrabold tabular-nums">{count}</p>
+          <p className="text-lg font-medium text-white/90">vies potentiellement sauvées</p>
+        </div>
+        <p className="mt-3 text-sm text-white/80">
+          Vous avez effectué <strong>{dons} don{dons > 1 ? 's' : ''}</strong>. Chaque poche de sang peut être séparée
+          en <strong>plaquettes, globules rouges et plasma</strong> — sauvant jusqu'à 3 patients différents.
+        </p>
+      </div>
     </div>
   );
 }

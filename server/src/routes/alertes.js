@@ -51,6 +51,31 @@ router.get('/', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (r
   }
 });
 
+// ---------------------------------------------------------------
+// GET /api/alertes/stats-mensuelles
+// ---------------------------------------------------------------
+// Renvoie le nombre d'alertes et le taux de résolution sur les 6 derniers mois.
+router.get('/stats-mensuelles', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (req, res) => {
+  try {
+    let sql = `SELECT DATE_FORMAT(date_creation, '%Y-%m') AS mois,
+                      COUNT(*) AS total,
+                      SUM(CASE WHEN statut = 'resolue' THEN 1 ELSE 0 END) AS resolues
+               FROM alertes
+               WHERE date_creation >= DATE_SUB(NOW(), INTERVAL 6 MONTH)`;
+    const params = [];
+    if (req.user.role === 'hopital') {
+      sql += ' AND hopital_id = ?';
+      params.push(req.user.hopital_id);
+    }
+    sql += ' GROUP BY mois ORDER BY mois';
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erreur stats mensuelles' });
+  }
+});
+
 // =====================================================================
 // BLOC 2 — Alertes reçues par le donneur connecté
 // =====================================================================
