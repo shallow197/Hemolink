@@ -84,11 +84,15 @@
   }
 
   .hl-nav-link {
-    @apply rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-navy;
+    @apply rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-navy;
   }
 
   .hl-nav-link-active {
     @apply bg-blood-light font-semibold text-blood;
+  }
+
+  .hl-header-pill {
+    @apply inline-flex h-9 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-brand-navy transition-colors;
   }
 
   .hl-alert-error {

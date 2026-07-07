@@ -53,7 +53,7 @@ export default function AppLayout() {
       <div className="h-1 bg-gradient-to-r from-brand-navy via-blood to-accent-teal" aria-hidden />
 
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 shadow-header backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-3 px-4 py-2.5">
           <Link to="/" className="group flex shrink-0 items-center gap-3">
             <Logo className="h-10 w-10 transition-transform group-hover:scale-105" />
             <div>
@@ -68,26 +68,20 @@ export default function AppLayout() {
               </NavLink>
             ))}
           </nav>
-          <div className="hidden h-8 w-px shrink-0 bg-slate-200 md:block" aria-hidden />
-          <div className="flex shrink-0 items-center gap-2 md:pl-1">
+          <div className="hidden h-5 w-px shrink-0 self-center bg-slate-200 md:mx-1 md:block" aria-hidden />
+          <div className="flex shrink-0 items-center gap-1.5">
             <NotificationBell />
             <NavLink
               to="/assistant"
               className={({ isActive }) =>
-                `hl-btn-secondary border-blood/20 py-2 text-blood ${isActive ? 'bg-blood-light ring-2 ring-blood/20' : ''}`
+                `hl-header-pill border-blood/25 text-blood hover:bg-blood-light ${isActive ? 'bg-blood-light ring-1 ring-blood/20' : ''}`
               }
             >
-              <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blood" aria-hidden />
+              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-blood" aria-hidden />
               Assistant IA
             </NavLink>
-            <p className="hidden max-w-[140px] items-center truncate rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-brand-navy sm:flex">
-              {user?.email}
-            </p>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-blood"
-            >
+            <p className="hl-header-pill hidden max-w-[140px] truncate text-slate-600 sm:flex">{user?.email}</p>
+            <button type="button" onClick={handleLogout} className="hl-header-pill text-slate-600 hover:bg-slate-50 hover:text-blood">
               Se déconnecter
             </button>
           </div>

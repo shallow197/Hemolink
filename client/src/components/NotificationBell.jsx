@@ -40,7 +40,7 @@ export default function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-lg border border-gray-200 bg-white p-2 text-gray-700 hover:bg-gray-50"
+        className="hl-header-pill relative w-9 px-0 text-slate-600 hover:bg-slate-50"
         title="Notifications"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
