@@ -53,7 +53,7 @@ export default function AppLayout() {
       <div className="h-1 bg-gradient-to-r from-brand-navy via-blood to-accent-teal" aria-hidden />
 
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 shadow-header backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-4 px-4 py-3">
           <Link to="/" className="group flex shrink-0 items-center gap-3">
             <Logo className="h-10 w-10 transition-transform group-hover:scale-105" />
             <div>
@@ -68,7 +68,8 @@ export default function AppLayout() {
               </NavLink>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="hidden h-8 w-px shrink-0 bg-slate-200 md:block" aria-hidden />
+          <div className="flex shrink-0 items-center gap-2 md:pl-1">
             <NotificationBell />
             <NavLink
               to="/assistant"
@@ -79,9 +80,9 @@ export default function AppLayout() {
               <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blood" aria-hidden />
               Assistant IA
             </NavLink>
-            <div className="hidden text-right text-xs sm:block">
-              <p className="max-w-[140px] truncate font-medium text-brand-navy">{user?.email}</p>
-            </div>
+            <p className="hidden max-w-[140px] items-center truncate rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-brand-navy sm:flex">
+              {user?.email}
+            </p>
             <button
               type="button"
               onClick={handleLogout}
@@ -102,7 +103,7 @@ export default function AppLayout() {
 
       <div className="relative flex">
         <main className="hl-app-main flex-1">
-          <div className="hl-app-inner mx-auto w-full max-w-[1600px] px-4 py-8">
+          <div className="hl-app-inner mx-auto w-full max-w-[1320px] px-4 py-8">
             <Outlet />
           </div>
         </main>
