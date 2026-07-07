@@ -6,26 +6,27 @@ import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import { IconAlert, IconGlobe, IconHistory, IconHome, IconHospital, IconMessage, IconShield, IconUser, IconUsers } from '../components/icons.jsx';
 
 const navDonneur = [
-  { to: '/mon-espace', label: 'Tableau de bord', end: true },
-  { to: '/mon-espace/alertes', label: 'Mes alertes' },
-  { to: '/mon-espace/historique', label: 'Historique' },
-  { to: '/mon-espace/profil', label: 'Mon profil' },
-  { to: '/mon-espace/droits', label: 'Mes droits' },
+  { to: '/mon-espace', label: 'Tableau de bord', end: true, icon: IconHome },
+  { to: '/mon-espace/alertes', label: 'Mes alertes', icon: IconAlert },
+  { to: '/mon-espace/historique', label: 'Historique', icon: IconHistory },
+  { to: '/mon-espace/profil', label: 'Mon profil', icon: IconUser },
+  { to: '/mon-espace/droits', label: 'Mes droits', icon: IconShield },
 ];
 
 const navStaff = [
-  { to: '/staff', label: 'Tableau de bord', end: true },
-  { to: '/staff/donneurs', label: 'Donneurs' },
-  { to: '/staff/hopitaux', label: 'Hôpitaux & stocks' },
-  { to: '/staff/alertes', label: 'Alertes' },
+  { to: '/staff', label: 'Tableau de bord', end: true, icon: IconHome },
+  { to: '/staff/donneurs', label: 'Donneurs', icon: IconUsers },
+  { to: '/staff/hopitaux', label: 'Hôpitaux & stocks', icon: IconHospital },
+  { to: '/staff/alertes', label: 'Alertes', icon: IconAlert },
 ];
 
 const navCnts = [
   ...navStaff,
-  { to: '/staff/cnts', label: 'Vue nationale CNTS' },
-  { to: '/staff/sms', label: 'File SMS' },
+  { to: '/staff/cnts', label: 'Vue nationale CNTS', icon: IconGlobe },
+  { to: '/staff/sms', label: 'File SMS', icon: IconMessage },
 ];
 
 export default function AppLayout() {
@@ -61,9 +62,10 @@ export default function AppLayout() {
               <p className="text-xs font-medium text-slate-500">{subtitle}</p>
             </div>
           </Link>
-          <nav className="hidden flex-1 items-center justify-center gap-0.5 md:flex">
+          <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 overflow-x-auto md:flex">
             {nav.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end} className={navCls}>
+                <n.icon className="h-4 w-4" />
                 {n.label}
               </NavLink>
             ))}
@@ -74,10 +76,10 @@ export default function AppLayout() {
             <NavLink
               to="/assistant"
               className={({ isActive }) =>
-                `hl-header-pill border-blood/25 text-blood hover:bg-blood-light ${isActive ? 'bg-blood-light ring-1 ring-blood/20' : ''}`
+                `hl-header-pill border-blood bg-blood text-white hover:bg-blood-dark ${isActive ? 'ring-2 ring-blood/30' : ''}`
               }
             >
-              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-blood" aria-hidden />
+              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-white" aria-hidden />
               Assistant IA
             </NavLink>
             <p className="hl-header-pill hidden max-w-[140px] truncate text-slate-600 sm:flex">{user?.email}</p>

@@ -84,7 +84,7 @@
   }
 
   .hl-nav-link {
-    @apply rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-navy;
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-navy [&>svg]:shrink-0;
   }
 
   .hl-nav-link-active {
