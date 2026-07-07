@@ -28,7 +28,7 @@ async function main() {
 
   const [tables] = await conn.query('SHOW TABLES');
   const noms = tables.map((t) => Object.values(t)[0]);
-  const attendues = ['regions', 'hopitaux', 'users', 'donneurs', 'stocks_sang', 'alertes', 'reponses_alertes', 'historique_dons', 'audit_log'];
+  const attendues = ['regions', 'hopitaux', 'users', 'donneurs', 'stocks_sang', 'alertes', 'reponses_alertes', 'historique_dons', 'notifications', 'notifications_sms', 'audit_log'];
   const manquantes = attendues.filter((n) => !noms.includes(n));
   if (manquantes.length) {
     console.error('❌ Tables manquantes :', manquantes.join(', '));
@@ -39,7 +39,9 @@ async function main() {
   const [[h]] = await conn.query('SELECT COUNT(*) AS n FROM hopitaux');
   const [[d]] = await conn.query('SELECT COUNT(*) AS n FROM donneurs');
   const [[u]] = await conn.query('SELECT COUNT(*) AS n FROM users');
-  console.log(`   ${h.n} hôpitaux · ${d.n} donneurs · ${u.n} comptes utilisateurs`);
+  const [[nf]] = await conn.query('SELECT COUNT(*) AS n FROM notifications');
+  const [[al]] = await conn.query('SELECT COUNT(*) AS n FROM alertes');
+  console.log(`   ${h.n} hôpitaux · ${d.n} donneurs · ${u.n} comptes · ${al.n} alertes · ${nf.n} notifications`);
 
   const [[admin]] = await conn.query("SELECT password_hash FROM users WHERE email = 'admin@hemolink.sn'");
   if (!admin) {
@@ -58,6 +60,7 @@ async function main() {
   console.log('\n🎉 Tout est prêt. Lance le serveur avec : npm run dev');
 }
 
+// (Pôle 4 : vérifie désormais 11 tables, dont notifications)
 main().catch((e) => {
   console.error('\n❌ Erreur :', e.message);
   console.error('   Vérifie WAMP démarré et les paramètres MySQL dans .env');

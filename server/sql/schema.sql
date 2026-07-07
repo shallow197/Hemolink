@@ -30,6 +30,7 @@ SET CHARACTER SET utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS notifications_sms;
 DROP TABLE IF EXISTS historique_dons;
 DROP TABLE IF EXISTS reponses_alertes;
@@ -224,6 +225,34 @@ CREATE TABLE notifications_sms (
 );
 
 -- ----------------------------------------------------------------------
+-- Notifications applicatives (page "Notifications" donneur & staff)
+-- 1 ligne = 1 message pour UN destinataire :
+--   • donneur_id renseigné → notification pour un donneur
+--   • user_id renseigné    → notification pour un compte staff
+-- Types couverts : alerte urgente, don réussi, rappel d'éligibilité,
+-- validation de profil, alerte résolue, stock critique, info générale.
+-- ----------------------------------------------------------------------
+CREATE TABLE notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NULL,
+  donneur_id INT NULL,
+  type ENUM('alerte_urgente','don_reussi','rappel_eligibilite','validation_profil','alerte_resolue','stock_critique','info') NOT NULL DEFAULT 'info',
+  titre VARCHAR(180) NOT NULL,
+  message TEXT,
+  lien VARCHAR(255) NULL,
+  alerte_id INT NULL,
+  lu BOOLEAN DEFAULT FALSE,
+  date_creation DATETIME DEFAULT CURRENT_TIMESTAMP,
+  date_lecture DATETIME NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (donneur_id) REFERENCES donneurs(id) ON DELETE CASCADE,
+  FOREIGN KEY (alerte_id) REFERENCES alertes(id) ON DELETE SET NULL,
+  INDEX idx_notif_user (user_id, lu),
+  INDEX idx_notif_donneur (donneur_id, lu),
+  INDEX idx_notif_date (date_creation)
+);
+
+-- ----------------------------------------------------------------------
 -- Journal d'audit (traçabilité actions sensibles — exigence CNTS)
 -- ----------------------------------------------------------------------
 CREATE TABLE audit_log (
@@ -242,7 +271,7 @@ CREATE TABLE audit_log (
 -- =====================================================================
 -- EXPLICATION POUR LA SOUTENANCE (30 secondes) :
 -- ---------------------------------------------------------------------
--- 9 tables organisées autour d'une logique simple :
+-- 11 tables organisées autour d'une logique simple :
 --   • regions, hopitaux : géographie du Sénégal (14 régions, 15 hôpitaux)
 --   • users + donneurs : un user_id LIE un compte connectable à un profil
 --     médical. Le user contient l'auth (email/hash/role), le donneur les
@@ -254,6 +283,9 @@ CREATE TABLE audit_log (
 --     "notification". UNIQUE pour éviter les doublons.
 --   • historique_dons : traçabilité médicale (don effectif, pas seulement
 --     promesse). Demandé par le CNTS pour la conformité réglementaire.
+--   • notifications : messages typés (alerte urgente, don réussi, rappel
+--     d'éligibilité, validation profil...) pour la page Notifications.
+--   • notifications_sms : file d'attente SMS (canal secondaire).
 --   • audit_log : qui a fait quoi quand (login, création alerte, modif
 --     stock, validation donneur). Indispensable pour audit institutionnel.
 --

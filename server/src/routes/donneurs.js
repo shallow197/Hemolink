@@ -1,13 +1,17 @@
 // =====================================================================
 // donneurs.js — Routes API pour la gestion des donneurs de sang
 // =====================================================================
-// 6 endpoints :
-//   GET    /api/donneurs              → liste filtrable (staff)
+// Endpoints :
+//   GET    /api/donneurs              → liste filtrable + recherche (staff)
 //   GET    /api/donneurs/me           → profil + éligibilité + historique (donneur)
 //   PATCH  /api/donneurs/me           → édition de son propre profil
 //   GET    /api/donneurs/:id          → fiche d'un donneur (staff)
 //   POST   /api/donneurs              → création (staff)
-//   POST   /api/donneurs/:id/valider  → validation par le CNTS
+//   PATCH  /api/donneurs/:id          → modification par le staff
+//   POST   /api/donneurs/:id/valider  → validation par le CNTS (+ notification)
+//   POST   /api/donneurs/:id/dons     → enregistrement d'un don effectif (+ notif don_reussi)
+//   DELETE /api/donneurs/:id          → suppression staff (cnts/admin)
+//   + bloc RGPD : /me/export, /me/anonymiser, DELETE /me
 // =====================================================================
 
 import { Router } from 'express';
@@ -17,6 +21,7 @@ import { validate } from '../middleware/validate.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { calculerEligibilite } from '../utils/eligibility.js';
 import { audit } from '../utils/audit.js';
+import { notifier } from '../utils/notify.js';
 
 const router = Router();
 
@@ -216,8 +221,20 @@ router.post('/', requireAuth(), requireRole('hopital', 'cnts', 'admin'), validat
 // ---------------------------------------------------------------
 router.post('/:id/valider', requireAuth(), requireRole('cnts', 'admin'), async (req, res) => {
   try {
-    await pool.query('UPDATE donneurs SET en_attente_validation = 0 WHERE id = ?', [req.params.id]);
-    await audit(req, 'valider_donneur', 'donneurs', Number(req.params.id));
+    const id = Number(req.params.id);
+    const [r] = await pool.query('UPDATE donneurs SET en_attente_validation = 0 WHERE id = ?', [id]);
+    if (!r.affectedRows) return res.status(404).json({ error: 'Donneur introuvable' });
+    await audit(req, 'valider_donneur', 'donneurs', id);
+
+    // Notification "validation_profil" pour le donneur
+    await notifier({
+      donneur_id: id,
+      type: 'validation_profil',
+      titre: 'Profil validé par le CNTS',
+      message: 'Votre profil donneur a été validé. Vous recevrez désormais les alertes de dons compatibles.',
+      lien: '/mon-espace',
+    });
+
     res.json({ ok: true });
   } catch (e) {
     console.error(e);
@@ -274,6 +291,97 @@ router.patch('/:id', requireAuth(), requireRole('hopital', 'cnts', 'admin'), val
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Erreur modification donneur' });
+  }
+});
+
+// ---------------------------------------------------------------
+// POST /api/donneurs/:id/dons  (staff enregistre un don effectif)
+// ---------------------------------------------------------------
+// Chaîne complète d'un don réussi :
+//   1. INSERT dans historique_dons (traçabilité médicale)
+//   2. UPDATE donneur : derniere_date_don + nombre_dons
+//   3. Option : incrément du stock de l'hôpital (+N poches)
+//   4. Notification "don_reussi" au donneur
+// Tout est transactionnel.
+const enregistrerDonSchema = z.object({
+  hopital_id: z.number().int().positive().optional(),
+  alerte_id: z.number().int().positive().optional().nullable(),
+  date_don: z.string().optional(),              // défaut : aujourd'hui
+  poches_prelevees: z.number().int().min(1).max(5).optional().default(1),
+  type_prelevement: z.enum(['sang_total', 'plaquettes', 'plasma']).optional().default('sang_total'),
+  apte: z.boolean().optional().default(true),
+  motif_inaptitude: z.string().max(255).optional().nullable(),
+  incrementer_stock: z.boolean().optional().default(true),
+});
+
+router.post('/:id/dons', requireAuth(), requireRole('hopital', 'cnts', 'admin'), validate(enregistrerDonSchema), async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const donneurId = Number(req.params.id);
+    const b = req.body;
+
+    // Un staff hôpital enregistre pour SON hôpital ; cnts/admin peut préciser
+    const hopitalId = req.user.role === 'hopital' ? req.user.hopital_id : (b.hopital_id ?? req.user.hopital_id);
+    if (!hopitalId) return res.status(400).json({ error: 'hopital_id requis' });
+
+    const [[d]] = await conn.query('SELECT id, groupe_sanguin, nombre_dons FROM donneurs WHERE id = ?', [donneurId]);
+    if (!d) return res.status(404).json({ error: 'Donneur introuvable' });
+
+    const dateDon = b.date_don || new Date().toISOString().slice(0, 10);
+
+    await conn.beginTransaction();
+
+    const [ins] = await conn.query(
+      `INSERT INTO historique_dons (donneur_id, hopital_id, alerte_id, date_don, groupe_sanguin,
+        poches_prelevees, type_prelevement, apte, motif_inaptitude)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [donneurId, hopitalId, b.alerte_id ?? null, dateDon, d.groupe_sanguin,
+       b.poches_prelevees, b.type_prelevement, b.apte ? 1 : 0, b.motif_inaptitude ?? null]
+    );
+
+    if (b.apte) {
+      // 2) Mise à jour du profil donneur
+      await conn.query(
+        'UPDATE donneurs SET derniere_date_don = ?, nombre_dons = nombre_dons + 1 WHERE id = ?',
+        [dateDon, donneurId]
+      );
+      // 3) Incrément du stock de l'hôpital (UPSERT)
+      if (b.incrementer_stock) {
+        await conn.query(
+          `INSERT INTO stocks_sang (hopital_id, groupe_sanguin, quantite_poches)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE quantite_poches = quantite_poches + VALUES(quantite_poches)`,
+          [hopitalId, d.groupe_sanguin, b.poches_prelevees]
+        );
+      }
+    }
+
+    await conn.commit();
+
+    // 4) Notification "don_reussi" (best-effort, hors transaction)
+    if (b.apte) {
+      const [[h]] = await pool.query('SELECT nom FROM hopitaux WHERE id = ?', [hopitalId]);
+      await notifier({
+        donneur_id: donneurId,
+        type: 'don_reussi',
+        titre: 'Merci pour votre don ! 🩸',
+        message: `Votre don de ${b.poches_prelevees} poche(s) (${b.type_prelevement.replace('_', ' ')}) à ${h?.nom || "l'hôpital"} a bien été enregistré.`,
+        lien: '/mon-espace/historique',
+        alerte_id: b.alerte_id ?? null,
+      });
+    }
+
+    await audit(req, 'enregistrer_don', 'historique_dons', ins.insertId, {
+      donneur_id: donneurId, hopital_id: hopitalId, poches: b.poches_prelevees, apte: b.apte,
+    });
+
+    res.status(201).json({ id: ins.insertId, ok: true });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error(e);
+    res.status(500).json({ error: 'Erreur enregistrement don' });
+  } finally {
+    conn.release();
   }
 });
 
@@ -449,6 +557,37 @@ router.delete('/me', requireAuth(), requireRole('donneur'), async (req, res) => 
     await conn.rollback().catch(() => {});
     console.error(e);
     res.status(500).json({ error: 'Erreur suppression RGPD' });
+  } finally {
+    conn.release();
+  }
+});
+
+// ---------------------------------------------------------------
+// DELETE /api/donneurs/:id  (cnts/admin supprime une fiche donneur)
+// ---------------------------------------------------------------
+// ⚠ Déclaré APRÈS "DELETE /me" pour que /me ne soit pas capturé par /:id.
+// Les FK ON DELETE CASCADE purgent reponses_alertes, historique_dons,
+// notifications et notifications_sms. Le compte user lié est aussi supprimé.
+router.delete('/:id', requireAuth(), requireRole('cnts', 'admin'), async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Identifiant invalide' });
+
+    const [[d]] = await conn.query('SELECT id, user_id FROM donneurs WHERE id = ?', [id]);
+    if (!d) return res.status(404).json({ error: 'Donneur introuvable' });
+
+    await conn.beginTransaction();
+    await conn.query('DELETE FROM donneurs WHERE id = ?', [id]);
+    if (d.user_id) await conn.query('DELETE FROM users WHERE id = ?', [d.user_id]);
+    await conn.commit();
+
+    await audit(req, 'delete_donneur_staff', 'donneurs', id);
+    res.json({ ok: true });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error(e);
+    res.status(500).json({ error: 'Erreur suppression donneur' });
   } finally {
     conn.release();
   }

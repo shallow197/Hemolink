@@ -13,6 +13,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { groupesCompatiblesPourReceveur } from '../utils/blood.js';
 import { distanceKm } from '../utils/geo.js';
 import { audit } from '../utils/audit.js';
+import { notifierDonneurs, notifierStaffHopital } from '../utils/notify.js';
 
 const router = Router();
 
@@ -129,6 +130,22 @@ router.put('/:id/stocks/:groupe', requireAuth(), requireRole('hopital', 'cnts', 
 
     // Traçabilité : on enregistre cette action dans audit_log
     await audit(req, 'update_stock', 'stocks_sang', hopitalId, { groupe, quantite_poches, seuil_critique });
+
+    // Notification "stock_critique" si le stock passe sous le seuil
+    const [[s]] = await pool.query(
+      'SELECT quantite_poches, seuil_critique FROM stocks_sang WHERE hopital_id = ? AND groupe_sanguin = ?',
+      [hopitalId, groupe]
+    );
+    if (s && s.quantite_poches <= s.seuil_critique) {
+      const [[h]] = await pool.query('SELECT nom FROM hopitaux WHERE id = ?', [hopitalId]);
+      await notifierStaffHopital(hopitalId, {
+        type: 'stock_critique',
+        titre: `Stock ${groupe} critique`,
+        message: `${h?.nom || 'Hôpital'} : il reste ${s.quantite_poches} poche(s) de ${groupe} (seuil : ${s.seuil_critique}). Pensez à lancer une alerte.`,
+        lien: '/staff/stocks',
+      });
+    }
+
     res.json({ ok: true });
   } catch (e) {
     console.error(e);
@@ -239,6 +256,23 @@ router.post('/alerte', requireAuth(), requireRole('hopital', 'cnts', 'admin'), v
           [smsValues]
         );
       }
+    }
+
+    // ÉTAPE 6ter — Notifications applicatives "alerte_urgente"
+    // (1 notification typée par donneur ciblé → page Notifications du Pôle 5)
+    if (cibles.length) {
+      const [[hopNom]] = await conn.query('SELECT nom, ville FROM hopitaux WHERE id = ?', [hopital_id]);
+      await notifierDonneurs(
+        cibles.map((c) => c.id),
+        {
+          type: 'alerte_urgente',
+          titre: `Alerte ${niveau_urgence} — sang ${groupe_sanguin} recherché`,
+          message: `${hopNom?.nom || 'Un hôpital'} (${hopNom?.ville || ''}) a besoin de ${poches_necessaires} poche(s) de ${groupe_sanguin}. ${message || ''}`.trim(),
+          lien: '/mon-espace/alertes',
+          alerte_id: alerteId,
+        },
+        conn
+      );
     }
 
     // Traçabilité (audit log)

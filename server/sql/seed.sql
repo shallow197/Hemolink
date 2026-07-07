@@ -9,6 +9,7 @@ SET CHARACTER SET utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE audit_log;
+TRUNCATE TABLE notifications;
 TRUNCATE TABLE notifications_sms;
 TRUNCATE TABLE historique_dons;
 TRUNCATE TABLE reponses_alertes;
@@ -174,3 +175,133 @@ INSERT INTO historique_dons (donneur_id, hopital_id, alerte_id, date_don, groupe
  (18,1, NULL, '2026-02-20', 'B+', 1, 'sang_total', TRUE),
  (26,3, NULL, '2026-01-20', 'A+', 1, 'sang_total', TRUE),
  (29,1, NULL, '2026-02-05', 'B+', 1, 'sang_total', TRUE);
+
+-- =====================================================================
+-- ENRICHISSEMENT PÔLE 4 — Jeux d'essais complets
+-- =====================================================================
+
+-- ----------------------------------------------------------------------
+-- Donneurs supplémentaires (31-42) : couverture régionale élargie +
+-- 4 profils EN ATTENTE DE VALIDATION (pour la démo CNTS du Pôle 5)
+-- ----------------------------------------------------------------------
+INSERT INTO donneurs
+ (id, user_id, nom, prenom, telephone, email, date_naissance, sexe, groupe_sanguin, poids_kg, region_id, ville, quartier, latitude, longitude, disponible, en_attente_validation, derniere_date_don, nombre_dons, consentement_rgpd)
+VALUES
+ (31, NULL, 'Badji',    'Yacine',    '+221762223344', NULL, '1993-05-19','femme','O+',  63.0, 14,'Ziguinchor', 'Boucotte',        12.57450000, -16.27800000, TRUE,  FALSE, '2025-12-05', 3, TRUE),
+ (32, NULL, 'Mané',     'Landing',   '+221763334455', NULL, '1987-08-02','homme','B+',  84.0, 12,'Kolda',      'Sikilo',          12.89390000, -14.94170000, TRUE,  FALSE, '2025-10-15', 5, TRUE),
+ (33, NULL, 'Barry',    'Hawa',      '+221764445566', NULL, '1999-01-27','femme','A+',  55.0, 10,'Tambacounda','Pont',            13.77410000, -13.66810000, TRUE,  FALSE, NULL,          0, TRUE),
+ (34, NULL, 'Konaté',   'Sékou',     '+221765556677', NULL, '1991-06-14','homme','O-',  76.0, 5, 'Kaolack',    'Médina Baye',     14.16100000, -16.06590000, TRUE,  FALSE, '2026-01-25', 4, TRUE),
+ (35, NULL, 'Dieng',    'Sophie',    '+221766667788', NULL, '1996-09-23','femme','AB+', 58.0, 2, 'Thiès',      'Grand Standing',  14.79470000, -16.93080000, TRUE,  FALSE, '2025-11-18', 2, TRUE),
+ (36, NULL, 'Ka',       'Oumar',     '+221767778899', NULL, '1983-12-11','homme','B-',  87.0, 7, 'Louga',      'Artillerie',      15.61890000, -16.24480000, TRUE,  FALSE, '2025-08-25', 6, TRUE),
+ (37, NULL, 'Ndour',    'Adja',      '+221768889900', NULL, '1994-04-06','femme','A-',  57.0, 8, 'Saint-Louis','Ndar Toute',      16.03350000, -16.50210000, TRUE,  FALSE, '2026-02-28', 3, TRUE),
+ (38, NULL, 'Sagna',    'Boubacar',  '+221769990011', NULL, '1990-10-31','homme','O+',  80.0, 4, 'Fatick',     'Escale',          14.33540000, -16.41230000, FALSE, FALSE, '2026-04-02', 4, TRUE),
+ -- 4 donneurs en attente de validation CNTS (badge "en_attente")
+ (39, NULL, 'Goudiaby', 'Aissatou',  '+221751112233', NULL, '2001-03-08','femme','O+',  59.0, 1, 'Dakar',      'Grand Dakar',     14.71050000, -17.44700000, TRUE,  TRUE,  NULL, 0, TRUE),
+ (40, NULL, 'Seydi',    'Malick',    '+221752223344', NULL, '1998-07-20','homme','A+',  72.0, 1, 'Pikine',     'Dalifort',        14.75630000, -17.40260000, TRUE,  TRUE,  NULL, 0, TRUE),
+ (41, NULL, 'Boye',     'Ndeye Fatou','+221753334455',NULL, '2000-11-15','femme','B+',  54.0, 2, 'Thiès',      'Mbour 1',         14.78550000, -16.92920000, TRUE,  TRUE,  NULL, 0, TRUE),
+ (42, NULL, 'Diedhiou', 'Ansou',     '+221754445566', NULL, '1995-02-09','homme','O-',  78.0, 14,'Ziguinchor', 'Lyndiane',        12.56230000, -16.26480000, TRUE,  TRUE,  NULL, 0, TRUE);
+
+-- ----------------------------------------------------------------------
+-- Stocks pour les hôpitaux qui n'en avaient pas (7, 9 à 15)
+-- → chaque hôpital a désormais ses 8 lignes de stock
+-- ----------------------------------------------------------------------
+INSERT INTO stocks_sang (hopital_id, groupe_sanguin, quantite_poches, seuil_critique) VALUES
+ (7,  'O+', 11, 8), (7,  'O-', 2, 5), (7,  'A+', 8,  6), (7,  'A-', 1, 4),
+ (7,  'B+', 5,  5), (7,  'B-', 1, 3), (7,  'AB+', 2, 3), (7,  'AB-', 0, 2),
+ (9,  'O+', 13, 8), (9,  'O-', 3, 5), (9,  'A+', 9,  6), (9,  'A-', 2, 4),
+ (9,  'B+', 6,  5), (9,  'B-', 2, 3), (9,  'AB+', 3, 3), (9,  'AB-', 1, 2),
+ (10, 'O+', 10, 8), (10, 'O-', 4, 5), (10, 'A+', 7,  6), (10, 'A-', 2, 4),
+ (10, 'B+', 5,  5), (10, 'B-', 1, 3), (10, 'AB+', 2, 3), (10, 'AB-', 1, 2),
+ (11, 'O+', 7,  8), (11, 'O-', 1, 5), (11, 'A+', 5,  6), (11, 'A-', 1, 4),
+ (11, 'B+', 4,  5), (11, 'B-', 0, 3), (11, 'AB+', 1, 3), (11, 'AB-', 0, 2),
+ (12, 'O+', 9,  8), (12, 'O-', 2, 5), (12, 'A+', 6,  6), (12, 'A-', 1, 4),
+ (12, 'B+', 4,  5), (12, 'B-', 1, 3), (12, 'AB+', 2, 3), (12, 'AB-', 0, 2),
+ (13, 'O+', 12, 8), (13, 'O-', 3, 5), (13, 'A+', 8,  6), (13, 'A-', 2, 4),
+ (13, 'B+', 6,  5), (13, 'B-', 1, 3), (13, 'AB+', 3, 3), (13, 'AB-', 1, 2),
+ (14, 'O+', 8,  8), (14, 'O-', 1, 5), (14, 'A+', 5,  6), (14, 'A-', 1, 4),
+ (14, 'B+', 3,  5), (14, 'B-', 0, 3), (14, 'AB+', 1, 3), (14, 'AB-', 0, 2),
+ (15, 'O+', 6,  8), (15, 'O-', 1, 5), (15, 'A+', 4,  6), (15, 'A-', 0, 4),
+ (15, 'B+', 3,  5), (15, 'B-', 1, 3), (15, 'AB+', 1, 3), (15, 'AB-', 0, 2);
+
+-- ----------------------------------------------------------------------
+-- Alertes supplémentaires : tous les statuts sont représentés
+-- ----------------------------------------------------------------------
+INSERT INTO alertes (id, hopital_id, cree_par_user_id, groupe_sanguin, niveau_urgence, message, rayon_km, poches_necessaires, statut, donneurs_contactes, donneurs_repondus, donneurs_acceptes, date_creation) VALUES
+ (3, 6, 5, 'A+', 'urgent',   'Besoin de 2 poches A+ pour un patient drépanocytaire hospitalisé.',       20, 2, 'en_cours', 5, 1, 1, NOW() - INTERVAL 5 HOUR),
+ (4, 4, 4, 'O+', 'normal',   'Campagne de renouvellement du stock O+ avant le week-end.',               40, 5, 'expiree',  8, 2, 1, NOW() - INTERVAL 10 DAY),
+ (5, 1, 2, 'AB-','critique', 'Urgence polytraumatisé — AB- introuvable, tous donneurs bienvenus.',      50, 2, 'annulee',  2, 0, 0, NOW() - INTERVAL 6 DAY),
+ (6, 13,2, 'O-', 'urgent',   'CHR Thiès : accident de la route, 2 poches O- nécessaires.',              30, 2, 'resolue',  3, 3, 2, NOW() - INTERVAL 15 DAY);
+
+UPDATE alertes SET date_expiration = NOW() - INTERVAL 3 DAY  WHERE id = 4;
+UPDATE alertes SET date_resolution = NOW() - INTERVAL 14 DAY WHERE id = 6;
+
+-- Réponses pour les nouvelles alertes
+INSERT INTO reponses_alertes (alerte_id, donneur_id, reponse, distance_km, date_notification, date_reponse) VALUES
+ (3, 2,  'accepte',     6.1,  NOW() - INTERVAL 5 HOUR,  NOW() - INTERVAL 4 HOUR),
+ (3, 10, 'pas_repondu', 5.8,  NOW() - INTERVAL 5 HOUR,  NULL),
+ (3, 19, 'pas_repondu', 7.2,  NOW() - INTERVAL 5 HOUR,  NULL),
+ (3, 26, 'pas_repondu', 9.4,  NOW() - INTERVAL 5 HOUR,  NULL),
+ (3, 30, 'pas_repondu', 8.0,  NOW() - INTERVAL 5 HOUR,  NULL),
+ (4, 4,  'accepte',     3.1,  NOW() - INTERVAL 10 DAY,  NOW() - INTERVAL 9 DAY),
+ (4, 7,  'refuse',      10.2, NOW() - INTERVAL 10 DAY,  NOW() - INTERVAL 9 DAY),
+ (4, 12, 'pas_repondu', 18.5, NOW() - INTERVAL 10 DAY,  NULL),
+ (5, 11, 'pas_repondu', 4.7,  NOW() - INTERVAL 6 DAY,   NULL),
+ (5, 27, 'pas_repondu', 2.3,  NOW() - INTERVAL 6 DAY,   NULL),
+ (6, 16, 'accepte',     4.9,  NOW() - INTERVAL 15 DAY,  NOW() - INTERVAL 15 DAY + INTERVAL 45 MINUTE),
+ (6, 35, 'accepte',     1.2,  NOW() - INTERVAL 15 DAY,  NOW() - INTERVAL 15 DAY + INTERVAL 2 HOUR),
+ (6, 41, 'refuse',      0.8,  NOW() - INTERVAL 15 DAY,  NOW() - INTERVAL 15 DAY + INTERVAL 1 HOUR);
+
+-- Dons supplémentaires (dont 1 inaptitude pour tester ce cas)
+INSERT INTO historique_dons (donneur_id, hopital_id, alerte_id, date_don, groupe_sanguin, poches_prelevees, type_prelevement, apte, motif_inaptitude) VALUES
+ (16, 13, 6,   '2026-06-22', 'AB+', 1, 'sang_total', TRUE,  NULL),
+ (34, 14, NULL,'2026-01-25', 'O-',  1, 'sang_total', TRUE,  NULL),
+ (37, 12, NULL,'2026-02-28', 'A-',  1, 'plasma',     TRUE,  NULL),
+ (20, 12, NULL,'2025-11-30', 'O+',  2, 'sang_total', TRUE,  NULL),
+ (14, 3,  NULL,'2026-03-15', 'A-',  1, 'sang_total', TRUE,  NULL),
+ (22, 3,  NULL,'2025-08-18', 'A-',  1, 'plaquettes', TRUE,  NULL),
+ (38, 1,  NULL,'2026-04-02', 'O+',  0, 'sang_total', FALSE, 'Tension artérielle trop basse le jour du don');
+
+-- ----------------------------------------------------------------------
+-- Notifications : TOUS les types représentés (page Notifications Pôle 5)
+-- ----------------------------------------------------------------------
+INSERT INTO notifications (user_id, donneur_id, type, titre, message, lien, alerte_id, lu, date_creation) VALUES
+ -- Donneur 1 (Aminata, compte aminata@example.sn) : parcours complet
+ (NULL, 1, 'alerte_urgente',     'Alerte critique — sang O- recherché',      'CHNU de Fann (Dakar) a besoin de 3 poches O- immédiatement.',                    '/mon-espace/alertes',    1, 0, NOW() - INTERVAL 35 MINUTE),
+ (NULL, 1, 'don_reussi',         'Merci pour votre don ! 🩸',                 'Votre don de 1 poche (sang total) au CNTS a bien été enregistré.',               '/mon-espace/historique', NULL, 1, NOW() - INTERVAL 4 MONTH),
+ (NULL, 1, 'rappel_eligibilite', 'Vous êtes de nouveau éligible',            'Votre délai inter-dons est écoulé : vous pouvez de nouveau donner votre sang.',  '/mon-espace',            NULL, 0, NOW() - INTERVAL 2 DAY),
+ -- Donneur 2 (Cheikh) : alerte en cours + don passé
+ (NULL, 2, 'alerte_urgente',     'Alerte urgente — sang A+ recherché',       'Hôpital Dalal Jamm (Guédiawaye) a besoin de 2 poches A+.',                       '/mon-espace/alertes',    3, 1, NOW() - INTERVAL 5 HOUR),
+ (NULL, 2, 'don_reussi',         'Merci pour votre don ! 🩸',                 'Votre don de 1 poche (sang total) au CNTS a bien été enregistré.',               '/mon-espace/historique', NULL, 1, NOW() - INTERVAL 5 MONTH),
+ -- Donneur 3 (Fatou) : rappel + info
+ (NULL, 3, 'rappel_eligibilite', 'Vous êtes de nouveau éligible',            'Cela fait plus de 4 mois depuis votre dernier don. Un geste peut sauver 3 vies.','/mon-espace',            NULL, 0, NOW() - INTERVAL 1 DAY),
+ (NULL, 3, 'info',               'Journée mondiale du donneur — 14 juin',    'Rejoignez la collecte spéciale organisée au CNTS de Fann.',                      NULL,                     NULL, 1, NOW() - INTERVAL 23 DAY),
+ -- Donneurs récemment validés / en attente
+ (NULL, 7, 'validation_profil',  'Profil validé par le CNTS',                'Votre profil donneur a été validé. Vous recevrez désormais les alertes compatibles.', '/mon-espace',       NULL, 0, NOW() - INTERVAL 3 DAY),
+ (NULL, 21,'validation_profil',  'Profil validé par le CNTS',                'Votre profil donneur a été validé. Bienvenue dans la communauté HemoLink !',     '/mon-espace',            NULL, 1, NOW() - INTERVAL 8 DAY),
+ -- Staff Hôpital Principal (user 4) : alerte résolue (alerte 2 = la sienne)
+ (4, NULL, 'alerte_resolue',     'Alerte B- résolue',                        'Objectif atteint : 2 donneurs ont accepté pour 2 poches demandées.',             '/staff/alertes/2',       2, 1, NOW() - INTERVAL 2 DAY),
+ -- Staff hôpital Fann (user 3) : stock critique
+ (3, NULL, 'stock_critique',     'Stock B- critique',                        'CHNU de Fann : il reste 3 poches de B- (seuil : 3). Pensez à lancer une alerte.','/staff/stocks',          NULL, 0, NOW() - INTERVAL 6 HOUR),
+ -- Staff Hôpital Principal (user 4) : stock critique
+ (4, NULL, 'stock_critique',     'Stock AB- critique',                       'Hôpital Principal : il reste 2 poches de AB- (seuil : 2).',                      '/staff/stocks',          NULL, 0, NOW() - INTERVAL 1 DAY),
+ -- CNTS (user 2) : info générale
+ (2, NULL, 'info',               '4 donneurs en attente de validation',      'De nouveaux profils donneurs attendent votre validation.',                       '/staff/donneurs',        NULL, 0, NOW() - INTERVAL 12 HOUR);
+
+-- ----------------------------------------------------------------------
+-- File SMS de démonstration (2 envoyés, 1 en file, 1 échec)
+-- ----------------------------------------------------------------------
+INSERT INTO notifications_sms (alerte_id, donneur_id, telephone, message, operateur, statut, date_creation, date_envoi, date_echec, motif_echec) VALUES
+ (1, 1,  '+221771112233', 'ALERTE HemoLink CRITIQUE — Sang O- demandé a CHNU de Fann. Repondez sur hemolink.sn/a/1.', 'orange',   'envoye',  NOW() - INTERVAL 35 MINUTE, NOW() - INTERVAL 33 MINUTE, NULL, NULL),
+ (1, 9,  '+221779990011', 'ALERTE HemoLink CRITIQUE — Sang O- demandé a CHNU de Fann. Repondez sur hemolink.sn/a/1.', 'free',     'envoye',  NOW() - INTERVAL 35 MINUTE, NOW() - INTERVAL 32 MINUTE, NULL, NULL),
+ (3, 10, '+221770001122', 'ALERTE HemoLink URGENT — Sang A+ demandé a Hopital Dalal Jamm. Repondez sur hemolink.sn/a/3.', 'orange','en_file', NOW() - INTERVAL 5 HOUR,   NULL, NULL, NULL),
+ (3, 19, '+221709990011', 'ALERTE HemoLink URGENT — Sang A+ demandé a Hopital Dalal Jamm. Repondez sur hemolink.sn/a/3.', 'expresso','echec', NOW() - INTERVAL 5 HOUR,   NULL, NOW() - INTERVAL 4 HOUR, 'Numéro injoignable');
+
+-- ----------------------------------------------------------------------
+-- Journal d'audit de démonstration
+-- ----------------------------------------------------------------------
+INSERT INTO audit_log (user_id, action, cible, cible_id, details, ip, date_action) VALUES
+ (3, 'login',                NULL,        NULL, NULL,                                        '127.0.0.1', NOW() - INTERVAL 1 DAY),
+ (3, 'create_alerte',        'alertes',   1,    '{"groupe_sanguin":"O-","niveau_urgence":"critique"}', '127.0.0.1', NOW() - INTERVAL 35 MINUTE),
+ (2, 'valider_donneur',      'donneurs',  21,   NULL,                                        '127.0.0.1', NOW() - INTERVAL 8 DAY),
+ (4, 'update_stock',         'stocks_sang', 4,  '{"groupe":"O+","quantite_poches":28}',      '127.0.0.1', NOW() - INTERVAL 2 DAY),
+ (6, 'repondre_alerte',      'alertes',   1,    '{"reponse":"accepte"}',                     '127.0.0.1', NOW() - INTERVAL 20 MINUTE);

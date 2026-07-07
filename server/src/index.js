@@ -11,6 +11,8 @@ import helmet from 'helmet';                  // headers HTTP de sécurité
 import rateLimit from 'express-rate-limit';   // limite le nombre de requêtes par IP
 import dotenv from 'dotenv';
 
+import { requestLogger } from './middleware/logger.js';
+
 // --- Import de tous les routeurs métier --------------------------------
 import authRouter from './routes/auth.js';
 import dashboardRouter from './routes/dashboard.js';
@@ -54,6 +56,10 @@ app.use(cors({
 
 // Parsing du corps JSON (limite 1 MB pour éviter les payloads abusifs)
 app.use(express.json({ limit: '1mb' }));
+
+// Journalisation de chaque requête HTTP (méthode, URL, statut, durée).
+// Désactivable avec LOG_REQUESTS=0 dans .env (ex : pendant les tests).
+app.use(requestLogger);
 
 // =====================================================================
 // BLOC 2 — Rate limiting (anti brute-force et anti-abus IA)
@@ -100,6 +106,15 @@ app.use('/api/ai', aiRouter);               // assistant IA Groq
 app.use('/api/sms', smsRouter);             // file SMS (simulation Sonatel/Orange)
 app.use('/api/exports', exportsRouter);     // CSV CNTS + certificat de don
 app.use('/api/notifications', notificationsRouter); // cloche header
+
+// =====================================================================
+// BLOC 4bis — 404 JSON pour toute route /api inconnue
+// =====================================================================
+// Sans ça, Express renvoie une page HTML "Cannot GET ..." peu exploitable
+// par le front. Ici : un JSON propre et cohérent avec le reste de l'API.
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'Route API introuvable' });
+});
 
 // =====================================================================
 // BLOC 5 — Gestionnaire d'erreur global (filet de sécurité)

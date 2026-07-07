@@ -15,6 +15,7 @@ import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { audit } from '../utils/audit.js';
+import { notifierStaffHopital } from '../utils/notify.js';
 import { calculerEligibilite, delaisInterDonsJours } from '../utils/eligibility.js';
 
 const router = Router();
@@ -217,17 +218,30 @@ router.post('/:id/repondre', requireAuth(), requireRole('donneur'), validate(rep
 
     // Auto-résolution si on a assez d'acceptations
     const [[al]] = await conn.query(
-      'SELECT poches_necessaires, statut FROM alertes WHERE id = ?',
+      'SELECT hopital_id, groupe_sanguin, poches_necessaires, statut FROM alertes WHERE id = ?',
       [alerteId]
     );
+    let autoResolue = false;
     if (al && al.statut === 'en_cours' && counts.acceptes >= al.poches_necessaires) {
       await conn.query(
         `UPDATE alertes SET statut = 'resolue', date_resolution = NOW() WHERE id = ?`,
         [alerteId]
       );
+      autoResolue = true;
     }
 
     await conn.commit();
+
+    // Notification "alerte_resolue" au staff de l'hôpital (best-effort)
+    if (autoResolue) {
+      await notifierStaffHopital(al.hopital_id, {
+        type: 'alerte_resolue',
+        titre: `Alerte ${al.groupe_sanguin} résolue`,
+        message: `Objectif atteint : ${counts.acceptes} donneur(s) ont accepté pour ${al.poches_necessaires} poche(s) demandée(s).`,
+        lien: `/staff/alertes/${alerteId}`,
+        alerte_id: alerteId,
+      });
+    }
     await audit(req, 'repondre_alerte', 'alertes', alerteId, { reponse });
 
     res.json({ ok: true, reponse });
