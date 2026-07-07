@@ -67,7 +67,7 @@ const updateProfileSchema = z.object({
 // ---------------------------------------------------------------
 router.get('/', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (req, res) => {
   try {
-    const { groupe_sanguin, ville, disponible, validation } = req.query;
+    const { groupe_sanguin, ville, disponible, validation, search } = req.query;
     let sql = `SELECT id, user_id, nom, prenom, telephone, email, sexe, groupe_sanguin, poids_kg,
       ville, quartier, region_id, latitude, longitude,
       disponible, en_attente_validation, derniere_date_don, nombre_dons, date_inscription
@@ -90,6 +90,11 @@ router.get('/', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (r
       sql += ' AND en_attente_validation = 1';
     } else if (validation === 'valide') {
       sql += ' AND en_attente_validation = 0';
+    }
+    if (search) {
+      sql += ' AND (nom LIKE ? OR prenom LIKE ? OR telephone LIKE ? OR email LIKE ? OR quartier LIKE ?)';
+      const term = `%${search}%`;
+      params.push(term, term, term, term, term);
     }
     sql += ' ORDER BY en_attente_validation DESC, nom, prenom';
     const [rows] = await pool.query(sql, params);
@@ -217,6 +222,58 @@ router.post('/:id/valider', requireAuth(), requireRole('cnts', 'admin'), async (
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Erreur validation donneur' });
+  }
+});
+
+// ---------------------------------------------------------------
+// PATCH /api/donneurs/:id  (staff modifie un donneur)
+// ---------------------------------------------------------------
+const updateDonneurStaffSchema = z.object({
+  nom: z.string().min(2).optional(),
+  prenom: z.string().min(2).optional(),
+  telephone: z.string().min(7).optional(),
+  email: z.string().email().optional().nullable(),
+  date_naissance: z.string().optional().nullable(),
+  sexe: z.enum(['homme', 'femme', 'autre']).optional(),
+  groupe_sanguin: z.enum(GROUPES).optional(),
+  poids_kg: z.number().positive().optional().nullable(),
+  region_id: z.number().int().positive().optional().nullable(),
+  ville: z.string().min(1).optional(),
+  quartier: z.string().optional().nullable(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  disponible: z.boolean().optional(),
+  en_attente_validation: z.boolean().optional(),
+  derniere_date_don: z.string().optional().nullable(),
+});
+
+router.patch('/:id', requireAuth(), requireRole('hopital', 'cnts', 'admin'), validate(updateDonneurStaffSchema), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const fields = req.body;
+
+    const [[d]] = await pool.query('SELECT id FROM donneurs WHERE id = ?', [id]);
+    if (!d) return res.status(404).json({ error: 'Donneur introuvable' });
+
+    const sets = [];
+    const params = [];
+    for (const [k, v] of Object.entries(fields)) {
+      sets.push(`${k} = ?`);
+      params.push(v);
+    }
+    if (!sets.length) {
+      return res.json({ ok: true });
+    }
+    params.push(id);
+
+    await pool.query(`UPDATE donneurs SET ${sets.join(', ')} WHERE id = ?`, params);
+    await audit(req, 'update_donneur_staff', 'donneurs', id, fields);
+
+    const [[updated]] = await pool.query('SELECT * FROM donneurs WHERE id = ?', [id]);
+    res.json(updated);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erreur modification donneur' });
   }
 });
 

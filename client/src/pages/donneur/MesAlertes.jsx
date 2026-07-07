@@ -44,8 +44,8 @@ export default function MesAlertes() {
     }
   }
 
-  const enAttente = rows.filter((a) => a.reponse === 'pas_repondu' && a.statut === 'en_cours');
-  const historique = rows.filter((a) => a.reponse !== 'pas_repondu' || a.statut !== 'en_cours');
+  const enAttente = rows.filter((a) => a.type === 'alerte' && a.reponse === 'pas_repondu' && a.statut === 'en_cours');
+  const historique = rows.filter((a) => a.type !== 'alerte' || a.reponse !== 'pas_repondu' || a.statut !== 'en_cours');
 
   return (
     <div className="hl-page">
@@ -111,35 +111,99 @@ export default function MesAlertes() {
       </section>
 
       <section>
-        <SectionHeading label="Archives" title={`Historique (${historique.length})`} className="mb-5" />
-        <DataTable empty={!historique.length} emptyMessage="Aucune réponse passée">
-          <table className="hl-table min-w-full">
-            <thead>
-              <tr>
-                <th>Hôpital</th>
-                <th>Groupe</th>
-                <th>Distance</th>
-                <th>Ma réponse</th>
-                <th>Statut</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historique.map((a) => (
-                <tr key={a.reponse_id}>
-                  <td className="font-semibold">{a.hopital_nom}</td>
-                  <td>{a.groupe_sanguin}</td>
-                  <td className="text-slate-500">{Number(a.distance_km || 0).toFixed(1)} km</td>
-                  <td>
-                    <ReponseBadge reponse={a.reponse} />
-                  </td>
-                  <td className="capitalize text-slate-500">{a.statut.replace('_', ' ')}</td>
-                  <td className="text-slate-400">{new Date(a.date_notification).toLocaleDateString('fr-FR')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </DataTable>
+        <SectionHeading label="Archives" title={`Notifications (${historique.length})`} className="mb-5" />
+        {historique.length === 0 ? (
+          <EmptyState>Aucune notification archivée.</EmptyState>
+        ) : (
+          <div className="space-y-4">
+            {historique.map((n) => {
+              if (n.type === 'don_reussi') {
+                return (
+                  <article key={n.id} className="hl-card hl-card-body border border-emerald-500/20 bg-emerald-50/20 p-5 md:p-6 shadow-sm flex items-start gap-4 transition-all hover:bg-emerald-50/40">
+                    <span className="text-3xl">🎉</span>
+                    <div>
+                      <h4 className="font-display text-lg font-bold text-emerald-800">
+                        Don de sang réussi !
+                      </h4>
+                      <p className="mt-2 text-sm text-slate-700 font-medium">
+                        Votre don de <strong>{n.details.poches_prelevees} poche(s)</strong> ({n.details.type_prelevement === 'sang_total' ? 'sang total' : n.details.type_prelevement}) à l'établissement <strong>{n.details.hopital_nom}</strong> ({n.details.hopital_ville}) a été enregistré.
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Date de prélèvement : {new Date(n.date).toLocaleDateString('fr-FR')}
+                      </p>
+                      <p className="mt-2 text-xs font-semibold text-emerald-700">
+                        Merci infiniment ! Votre geste désintéressé contribue à sauver des vies au Sénégal.
+                      </p>
+                    </div>
+                  </article>
+                );
+              }
+              if (n.type === 'rappel') {
+                return (
+                  <article key={n.id} className="hl-card hl-card-body border border-amber-500/20 bg-amber-50/30 p-5 md:p-6 shadow-sm flex items-start gap-4 transition-all hover:bg-amber-50/50">
+                    <span className="text-3xl">📅</span>
+                    <div>
+                      <h4 className="font-display text-lg font-bold text-amber-800">
+                        Rappel d'éligibilité
+                      </h4>
+                      <p className="mt-2 text-sm text-slate-700 font-medium">
+                        Bonne nouvelle ! Le délai légal depuis votre dernier don ({n.details.derniere_date_don ? new Date(n.details.derniere_date_don).toLocaleDateString('fr-FR') : '—'}) est écoulé. Vous êtes à nouveau éligible pour donner votre sang (Groupe <strong>{n.details.groupe_sanguin}</strong>).
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Éligible depuis le : {new Date(n.date).toLocaleDateString('fr-FR')}
+                      </p>
+                      <p className="mt-2 text-xs font-semibold text-amber-700">
+                        N'hésitez pas à vous rendre au CNTS ou dans le centre de transfusion le plus proche pour votre prochain don.
+                      </p>
+                    </div>
+                  </article>
+                );
+              }
+              
+              // Standard alert responses ('alerte')
+              const isResolved = n.statut === 'resolue';
+              const isExpired = n.statut === 'expiree' || n.statut === 'annulee';
+              
+              let badgeColor = 'bg-slate-100 text-slate-600';
+              if (isResolved) badgeColor = 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200/50';
+              if (n.statut === 'en_cours') badgeColor = 'bg-amber-100 text-amber-800 ring-1 ring-amber-200/50';
+
+              return (
+                <article key={n.id} className="hl-card hl-card-body border border-slate-200 bg-white p-5 md:p-6 shadow-sm flex items-start gap-4 hover:border-slate-300 hover:bg-slate-50/50 transition-all">
+                  <span className="text-3xl">🏥</span>
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h4 className="font-display text-lg font-bold text-slate-800">
+                        {n.hopital_nom} — Groupe {n.groupe_sanguin}
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center rounded-lg px-2.5 py-0.5 text-xs font-semibold uppercase ${badgeColor}`}>
+                          {n.statut === 'en_cours' ? 'Active' : n.statut === 'resolue' ? 'Résolue' : n.statut === 'expiree' ? 'Expirée' : 'Annulée'}
+                        </span>
+                        <ReponseBadge reponse={n.reponse} />
+                      </div>
+                    </div>
+                    
+                    <p className="mt-1.5 text-xs font-semibold text-slate-500">
+                      {n.hopital_ville} · {Number(n.distance_km || 0).toFixed(1)} km · Tél : <a href={`tel:${n.hopital_tel}`} className="text-blood hover:underline">{n.hopital_tel}</a>
+                    </p>
+                    
+                    {n.message && (
+                      <p className="mt-3 rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-2.5 text-xs italic text-slate-600">
+                        « {n.message} »
+                      </p>
+                    )}
+                    
+                    <p className="mt-3 text-xs text-slate-400">
+                      Reçue le {new Date(n.date_notification).toLocaleString('fr-FR')} 
+                      {n.date_reponse && ` · Répondu le ${new Date(n.date_reponse).toLocaleString('fr-FR')}`}
+                    </p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );

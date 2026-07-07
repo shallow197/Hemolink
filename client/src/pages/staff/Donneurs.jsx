@@ -13,7 +13,9 @@ export default function Donneurs() {
   const [filtreVille, setFiltreVille] = useState('');
   const [filtreDispo, setFiltreDispo] = useState('');
   const [filtreVal, setFiltreVal] = useState('');
+  const [filtreSearch, setFiltreSearch] = useState('');
   const [modal, setModal] = useState(false);
+  const [editingDonneur, setEditingDonneur] = useState(null);
   const [form, setForm] = useState({
     nom: '', prenom: '', telephone: '', email: '', sexe: 'autre',
     groupe_sanguin: 'O+', poids_kg: '', ville: '', quartier: '',
@@ -26,9 +28,10 @@ export default function Donneurs() {
     if (filtreVille) q.set('ville', filtreVille);
     if (filtreDispo) q.set('disponible', filtreDispo);
     if (filtreVal) q.set('validation', filtreVal);
+    if (filtreSearch) q.set('search', filtreSearch);
     const data = await fetchJson(`/api/donneurs?${q.toString()}`);
     setRows(data);
-  }, [filtreGs, filtreVille, filtreDispo, filtreVal]);
+  }, [filtreGs, filtreVille, filtreDispo, filtreVal, filtreSearch]);
 
   useEffect(() => { load().catch(() => {}); }, [load]);
   usePoll(load, 30000, [load]);
@@ -43,8 +46,13 @@ export default function Donneurs() {
       derniere_date_don: form.derniere_date_don || null,
       email: form.email || null,
     };
-    await fetchJson('/api/donneurs', { method: 'POST', body: JSON.stringify(payload) });
+    if (editingDonneur) {
+      await fetchJson(`/api/donneurs/${editingDonneur.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    } else {
+      await fetchJson('/api/donneurs', { method: 'POST', body: JSON.stringify(payload) });
+    }
     setModal(false);
+    setEditingDonneur(null);
     await load();
   }
 
@@ -53,6 +61,27 @@ export default function Donneurs() {
     await fetchJson(`/api/donneurs/${id}/valider`, { method: 'POST' });
     await load();
   }
+
+  const handleRowClick = (d) => {
+    setEditingDonneur(d);
+    setForm({
+      nom: d.nom || '',
+      prenom: d.prenom || '',
+      telephone: d.telephone || '',
+      email: d.email || '',
+      sexe: d.sexe || 'autre',
+      groupe_sanguin: d.groupe_sanguin || 'O+',
+      poids_kg: d.poids_kg ?? '',
+      ville: d.ville || '',
+      quartier: d.quartier || '',
+      latitude: d.latitude ?? '',
+      longitude: d.longitude ?? '',
+      disponible: d.disponible === 1 || d.disponible === true,
+      en_attente_validation: d.en_attente_validation === 1 || d.en_attente_validation === true,
+      derniere_date_don: d.derniere_date_don ? new Date(d.derniere_date_don).toISOString().split('T')[0] : '',
+    });
+    setModal(true);
+  };
 
   const peutValider = user?.role === 'cnts' || user?.role === 'admin';
   const enAttente = rows.filter((r) => r.en_attente_validation).length;
@@ -68,13 +97,28 @@ export default function Donneurs() {
           ) : null
         }
         actions={
-          <button type="button" onClick={() => setModal(true)} className="hl-btn-primary">
+          <button type="button" onClick={() => {
+            setEditingDonneur(null);
+            setForm({
+              nom: '', prenom: '', telephone: '', email: '', sexe: 'autre',
+              groupe_sanguin: 'O+', poids_kg: '', ville: '', quartier: '',
+              latitude: '', longitude: '', disponible: true, en_attente_validation: false, derniere_date_don: '',
+            });
+            setModal(true);
+          }} className="hl-btn-primary">
             + Ajouter un donneur
           </button>
         }
       />
 
       <FilterBar>
+        <input
+          type="text"
+          placeholder="Rechercher nom, prénom, tel..."
+          value={filtreSearch}
+          onChange={(e) => setFiltreSearch(e.target.value)}
+          className={filterCls}
+        />
         <select value={filtreGs} onChange={(e) => setFiltreGs(e.target.value)} className={filterCls}>
           <option value="">Tous les groupes</option>
           {GROUPES.map((g) => <option key={g} value={g}>{g}</option>)}
@@ -107,7 +151,7 @@ export default function Donneurs() {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {rows.map((d) => (
-              <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
+              <tr key={d.id} onClick={() => handleRowClick(d)} className="hover:bg-slate-100/80 transition-colors cursor-pointer">
                 <td className="px-4 py-3 font-medium text-gray-900">{d.prenom} {d.nom}</td>
                 <td className="px-4 py-3">
                   <BloodGroupBadge group={d.groupe_sanguin} />
@@ -117,7 +161,7 @@ export default function Donneurs() {
                 <td className="px-4 py-3 text-gray-700">{d.ville}{d.quartier ? <span className="text-gray-400"> · {d.quartier}</span> : null}</td>
                 <td className="px-4 py-3"><DispoBadge statut={d.statut_badge} /></td>
                 {peutValider && (
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     {d.en_attente_validation && (
                       <button type="button" onClick={() => valider(d.id)} className="hl-btn-success px-3 py-1 text-xs">
                         Valider
@@ -131,7 +175,7 @@ export default function Donneurs() {
         </table>
       </DataTable>
 
-      <Modal open={modal} onClose={() => setModal(false)} title="Nouveau donneur">
+      <Modal open={modal} onClose={() => { setModal(false); setEditingDonneur(null); }} title={editingDonneur ? "Modifier le donneur" : "Nouveau donneur"}>
             <form className="space-y-3" onSubmit={submit}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} required />
@@ -160,7 +204,7 @@ export default function Donneurs() {
                 Marquer en attente de validation
               </label>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setModal(false)} className="hl-btn-danger-ghost">
+                <button type="button" onClick={() => { setModal(false); setEditingDonneur(null); }} className="hl-btn-danger-ghost">
                   Annuler
                 </button>
                 <button type="submit" className="hl-btn-primary">

@@ -15,6 +15,7 @@ import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { audit } from '../utils/audit.js';
+import { calculerEligibilite, delaisInterDonsJours } from '../utils/eligibility.js';
 
 const router = Router();
 
@@ -58,8 +59,9 @@ router.get('/', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (r
 // C'est ce qui alimente la page MesAlertes.jsx côté donneur.
 router.get('/mes', requireAuth(), requireRole('donneur'), async (req, res) => {
   try {
-    const [[d]] = await pool.query('SELECT id FROM donneurs WHERE user_id = ?', [req.user.id]);
+    const [[d]] = await pool.query('SELECT * FROM donneurs WHERE user_id = ?', [req.user.id]);
     if (!d) return res.json([]);
+    
     const [rows] = await pool.query(
       `SELECT r.id AS reponse_id, r.reponse, r.distance_km, r.date_notification, r.date_reponse, r.date_lecture,
               a.id AS alerte_id, a.groupe_sanguin, a.niveau_urgence, a.message, a.rayon_km, a.statut, a.date_creation,
@@ -73,10 +75,65 @@ router.get('/mes', requireAuth(), requireRole('donneur'), async (req, res) => {
        LIMIT 100`,
       [d.id]
     );
-    res.json(rows);
+
+    const notifications = rows.map((a) => ({
+      ...a,
+      id: `alerte-${a.reponse_id}`,
+      type: 'alerte',
+      date: a.date_notification,
+    }));
+
+    // 2. Dons réussis
+    const [dons] = await pool.query(
+      `SELECT hd.*, h.nom AS hopital_nom, h.ville AS hopital_ville
+       FROM historique_dons hd
+       JOIN hopitaux h ON h.id = hd.hopital_id
+       WHERE hd.donneur_id = ? AND hd.apte = 1
+       ORDER BY hd.date_don DESC`,
+      [d.id]
+    );
+
+    dons.forEach((don) => {
+      notifications.push({
+        id: `don-${don.id}`,
+        type: 'don_reussi',
+        date: don.date_don,
+        details: {
+          hopital_nom: don.hopital_nom,
+          hopital_ville: don.hopital_ville,
+          poches_prelevees: don.poches_prelevees,
+          type_prelevement: don.type_prelevement,
+        },
+      });
+    });
+
+    // 3. Rappel d'éligibilité
+    const elig = calculerEligibilite(d);
+    if (elig.eligible) {
+      let dateElig = d.date_inscription;
+      if (d.derniere_date_don) {
+        const delai = delaisInterDonsJours(d.sexe);
+        const last = new Date(d.derniere_date_don);
+        const next = new Date(last);
+        next.setDate(next.getDate() + delai);
+        dateElig = next;
+      }
+      notifications.push({
+        id: `rappel-${d.id}`,
+        type: 'rappel',
+        date: dateElig,
+        details: {
+          groupe_sanguin: d.groupe_sanguin,
+          derniere_date_don: d.derniere_date_don,
+        },
+      });
+    }
+
+    notifications.sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json(notifications);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Erreur mes alertes' });
+    res.status(500).json({ error: 'Erreur mes notifications' });
   }
 });
 
