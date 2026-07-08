@@ -77,11 +77,10 @@ Chacun a son espace dédié, ses droits, ses outils.
 **Rôle ?** Faciliter l'accès à l'information sans formation technique.
 
 **Ce qu'il peut faire :**
-- **Répondre à des questions en langage naturel** sur les données ("combien de O- disponibles à Dakar ?")
-- **Reformuler les chiffres** en phrases compréhensibles pour le staff médical
-- **Conseiller sur l'éligibilité** d'un donneur
-- **Expliquer les règles métier** (délais inter-dons, groupes rares, etc.)
-- **Génère du SQL en lecture seule** (sécurisé par notre garde sqlGuard)
+- **Répondre en langage naturel** sur les données ("combien de O- disponibles à Dakar ?") — SQL en lecture seule, sécurisé par notre garde sqlGuard
+- **Prédire les ruptures de stock** : autonomie en jours par hôpital et par groupe, alerte à J-7
+- **Recommander les donneurs à mobiliser** : score sur 100 (éligibilité, fiabilité, proximité, expérience), 100 % explicable
+- **Générer automatiquement les notifications** : rappels d'éligibilité aux donneurs, alertes prédictives au staff
 
 ---
 
@@ -138,14 +137,14 @@ Chacun a son espace dédié, ses droits, ses outils.
 
 > *"Pour concevoir HemoLink, on a suivi une démarche **Cycle en V hybride** : la rigueur d'un système médical, avec l'agilité d'itérations Scrum à l'intérieur.*
 >
-> *Voici notre **MCD** : neuf entités structurées autour d'une logique simple. Au centre, les **alertes** lient un hôpital à des donneurs via la table 'réponses', qui est notre table de notification. Chaque donneur a son historique, chaque action est tracée dans un journal d'audit — exigence forte du CNTS pour la conformité.*
+> *Voici notre **MCD** : onze entités structurées autour d'une logique simple. Au centre, les **alertes** lient un hôpital à des donneurs via les réponses et des notifications typées. Chaque donneur a son historique, chaque action sensible est tracée dans un journal d'audit — exigence forte du CNTS pour la conformité.*
 >
 > *Côté **cas d'utilisation**, on identifie quatre rôles : donneur, staff hôpital, CNTS et admin. Chaque acteur a ses propres parcours :*
 > - *Le donneur s'inscrit, reçoit des alertes, répond.*
 > - *L'hôpital gère ses stocks, déclenche des alertes, suit les réponses.*
 > - *Le CNTS valide les comptes, supervise l'activité nationale.*
 >
-> *Le MLD respecte la troisième forme normale, avec des index sur les colonnes de recherche fréquente — groupe sanguin, géolocalisation, disponibilité. **Tout est prêt pour passer à l'échelle nationale.***
+> *Le MLD respecte la troisième forme normale, avec index sur les recherches fréquentes — groupe sanguin, géolocalisation, disponibilité. Et chaque endpoint est validé par notre suite de **61 tests automatisés**. **Tout est prêt pour passer à l'échelle nationale.***
 >
 > *Maintenant, place à la démo."*
 
@@ -197,9 +196,9 @@ Chacun a son espace dédié, ses droits, ses outils.
 >
 > *Je tape : "Combien de donneurs O- disponibles à Dakar ?"*
 >
-> *L'IA génère une requête SQL en lecture seule — sécurisée par notre garde maison qui n'autorise QUE les SELECT — exécute, et reformule la réponse en français naturel. **Pas de jargon, pas de tableaux bruts, juste une phrase.***
+> *L'IA génère une requête SQL en lecture seule — notre garde maison n'autorise QUE les SELECT — exécute, et répond en français naturel. **Pas de jargon, juste une phrase.***
 >
-> *Le médecin n'a plus besoin de connaître SQL ni de cliquer dans 5 menus. Il pose sa question, il a sa réponse. **Voilà notre vision : la donnée médicale accessible à tous.***"
+> *Et on va plus loin que le chat : HemoLink **prédit les ruptures de stock** — autonomie en jours, alerte à J-7 — et **recommande quels donneurs mobiliser en premier**, avec un score sur 100 explicable. Le système ne réagit plus aux urgences : **il les prévient. Voilà notre vision : la donnée médicale accessible à tous.***"
 
 [Pause forte. Se tourner vers le dernier intervenant.]
 
@@ -213,7 +212,7 @@ Chacun a son espace dédié, ses droits, ses outils.
 >
 > *Trois chantiers majeurs sont en cours :*
 >
-> ***Un**, l'**intelligence prédictive**. Au-delà du chat, on va entraîner un modèle qui anticipe les ruptures de stock 7 jours à l'avance, recommande les meilleurs donneurs à mobiliser, et optimise les campagnes de don. Le système ne réagira plus aux urgences, **il les préviendra**.*
+> ***Un**, l'**intelligence prédictive** — elle est **déjà livrée** : rupture anticipée à J-7, donneurs classés par score, rappels automatiques d'éligibilité. Prochaine étape : affiner ces modèles avec les données réelles accumulées pour optimiser les campagnes de don à l'échelle nationale.*
 >
 > ***Deux**, la **géolocalisation temps réel**. Avec l'accord du donneur, sa position actuelle remplacera son adresse fixe — un médecin disponible à 500 mètres d'un hôpital sera contacté en priorité, même s'il habite à 30 km.*
 >
@@ -258,7 +257,7 @@ Chacun a son espace dédié, ses droits, ses outils.
 > *Système médical = rigueur non négociable. Le Cycle en V garantit la traçabilité demandée par le CNTS. Mais on a besoin de feedback terrain rapide, donc on fait des itérations Scrum de 2 semaines à l'intérieur de chaque phase. C'est le meilleur des deux mondes.*
 
 **Q : "Et la sécurité des données médicales ?"**
-> *Trois lignes de défense : (1) JWT + bcrypt + rate-limit anti brute-force, (2) validation Zod sur toutes les entrées, (3) audit log complet de toutes les actions sensibles. L'IA elle-même est encadrée par un garde SQL qui n'autorise que les SELECT.*
+> *Défense en profondeur : (1) JWT + bcrypt + rate-limit anti brute-force, (2) validation Zod de toutes les entrées, (3) cloisonnement strict par rôle — un hôpital ne voit QUE ses données, vérifié par 61 tests automatisés, (4) audit log de toute action sensible, (5) droits RGPD codés : export, anonymisation, droit à l'oubli — Loi sénégalaise 2008-12. L'IA est encadrée par un garde SQL qui n'autorise que les SELECT.*
 
 **Q : "Comment vous gérez les zones sans internet ?"**
 > *C'est dans notre roadmap : mode dégradé SMS via Orange Sénégal API. Pour la v1, on cible les zones urbaines couvertes.*
@@ -293,7 +292,7 @@ Chacun a son espace dédié, ses droits, ses outils.
 2. **Slide 2 (Intervenant 2)** : schéma simple "Donneur ↔ Hôpital ↔ CNTS" avec icônes
 3. **Slide 3 (Intervenant 3)** : MCD + cas d'utilisation côte à côte
 4. **Slide 4 (Intervenant 4)** : capture d'écran "lancer alerte" + capture "mes alertes" donneur
-5. **Slide 5 (Intervenant 5)** : capture vue nationale CNTS + capture chat IA
+5. **Slide 5 (Intervenant 5)** : capture vue nationale CNTS + capture chat IA + prévision de rupture J-7
 6. **Slide 6 (Intervenant 6)** : trois icônes (prédiction, géoloc, wolof) + tagline "Chaque minute compte"
 7. **Slide bonus 'Merci'** : noms des 6 membres + lien GitHub + contact
 

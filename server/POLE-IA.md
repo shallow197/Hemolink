@@ -1,56 +1,57 @@
 # Partie IA — Intelligence prédictive : livraison (Lots 2, 3, 4)
 
-L'assistant conversationnel (chat Groq/Llama) existait déjà. Cette livraison ajoute
-la partie **prédictive et explicable** annoncée dans la présentation — sans LLM,
-donc gratuite, rapide, et démontrable même hors-ligne.
+Le chat Groq/Llama (`/api/ai/chat`) est cloisonné : le pipeline SQL (lecture seule, garde sqlGuard)
+est réservé au staff ; donneurs et invités ont un mode information pure (modalités du don,
+éligibilité, compatibilités) sans aucun accès à la base — barrière dans le prompt ET dans le code. Cette livraison
+ajoute la partie **prédictive** promise dans le pitch : 100 % déterministe et explicable
+(pas de boîte noire), 0 dépendance, 0 coût API, fonctionne hors-ligne — et chaque réponse
+JSON embarque un champ `methode` qui explique le calcul (argument clé en soutenance).
 
-## Lot 2 — Prévisions de rupture de stock
+## Lot 2 — Prévisions de rupture de stock (`src/utils/previsions.js`)
 
-`GET /api/ai/previsions` (staff hôpital : son hôpital · cnts/admin : national, filtres `?hopital_id=` et `?niveau=critique|rupture|surveille|ok`)
+`GET /api/ai/previsions` — staff : son hôpital (cloisonnement JWT) · cnts/admin : national.
+Filtres `?hopital_id=` et `?niveau=rupture|critique|surveille|ok`. Réponse : `resume`
+agrégé + lignes triées par urgence.
 
-Méthode (déterministe, chaque prévision embarque ses variables) :
-1. Demande observée = poches demandées via les alertes des 90 derniers jours → moyenne/jour
-2. Plancher de rotation = seuil_critique / 30 (le seuil ≈ 1 mois de réserve)
-3. Conso estimée = max(des deux) → **autonomie (jours) = stock / conso** → date de rupture estimée
-4. Niveaux : `rupture` (0 j) · `critique` (≤ 7 j) · `surveille` (≤ 14 j) · `ok`
+**Formule** : conso/jour = max(poches demandées via alertes sur 90 j ÷ 90 ; seuil_critique ÷ 30 ;
+0,05) → autonomie = stock ÷ conso → `date_rupture_estimee`. Niveaux : `rupture` 0 j ·
+`critique` ≤ 7 j · `surveille` ≤ 14 j. Chaque ligne expose ses entrées (`demande_90j`,
+`conso_estimee_par_jour`) : le staff peut refaire le calcul à la main.
 
-Logique dans `src/utils/previsions.js`, réutilisée par le Lot 4.
+## Lot 3 — Recommandation des donneurs (`/api/alertes/:id/recommandations`)
 
-## Lot 3 — Recommandation des donneurs à mobiliser
+Score /100 pour chaque donneur ciblé, staff uniquement, cloisonné par hôpital :
 
-`GET /api/alertes/:id/recommandations` (staff, cloisonné par hôpital)
+| Critère | Poids | Source | Barème |
+|---|---|---|---|
+| Éligibilité CNTS aujourd'hui | 30 % | `eligibility.js` | 1 ou 0 + raisons (âge, poids, délai 90 j H/120 j F) |
+| Fiabilité historique | 30 % | `reponses_alertes` passées | accepté=1 · sans réponse=0,25 · refusé=0 · défaut 0,5 |
+| Proximité | 25 % | Haversine stockée | 1 − distance/rayon |
+| Expérience | 15 % | `nombre_dons` | plafonné à 10 dons |
 
-Score explicable sur 100 pour chaque donneur ciblé par l'alerte :
+Tri : « pas encore répondu » d'abord (eux seuls sont relançables), puis score décroissant.
+`details_score` justifie chaque rang — affichable tel quel dans l'UI du Pôle 5.
 
-| Critère | Poids | Source |
-|---|---|---|
-| Éligibilité CNTS aujourd'hui | 30 % | `utils/eligibility.js` (âge, poids, délai inter-dons) |
-| Fiabilité historique | 30 % | réponses aux alertes passées (accepté=1, sans réponse=0.25, refusé=0) |
-| Proximité | 25 % | 1 − distance/rayon (Haversine déjà stockée) |
-| Expérience | 15 % | nombre de dons (plafonné à 10) |
+## Lot 4 — Notifications automatiques (`src/utils/autoNotifs.js`)
 
-Les donneurs « pas encore répondu » sont en tête (ce sont eux qu'on relance),
-et `details_score` justifie chaque classement — pas de boîte noire.
+Deux règles **idempotentes** (prouvé par test : 2ᵉ passage = 0 création) :
+- `rappel_eligibilite` → donneur redevenu éligible ; dédup par cycle via `NOT EXISTS`
+  sur la date d'éligibilité (un nouveau don réarme le rappel).
+- `stock_critique` prédictif → staff de l'hôpital si rupture ≤ 7 j (réutilise le Lot 2) ;
+  dédup tant que la notification précédente n'est pas lue (titre normalisé = clé).
 
-## Lot 4 — Notifications intelligentes automatiques
+Déclencheurs : `POST /api/ai/generer-notifications` (cnts/admin, tracé dans `audit_log`)
+ou `npm run notifs-auto` (cron : `0 8 * * * cd server && node scripts/auto-notifs.js`).
 
-Deux règles **idempotentes** (rejouables sans doublon) dans `src/utils/autoNotifs.js` :
-- **Rappel d'éligibilité** : donneur dont le délai inter-dons (90 j H / 120 j F) est écoulé
-  → notification `rappel_eligibilite`, une seule par cycle (un nouveau don réinitialise).
-- **Stock critique prédictif** : rupture prévue sous 7 jours (Lot 2)
-  → notification `stock_critique` au staff de l'hôpital, pas de doublon tant que non lue.
+## Qualité
 
-Déclenchement :
-- `POST /api/ai/generer-notifications` (cnts/admin, audité)
-- `npm run notifs-auto` — cron-compatible : `0 8 * * * cd server && node scripts/auto-notifs.js`
+- **61/61 tests verts** (`npm test`) dont 11 nouveaux : cloisonnement par rôle (403),
+  tri, filtres, champs de prédiction, idempotence, réception effective des notifications.
+- Sécurité inchangée : JWT + `requireRole`, aucune écriture hors notifications auditées.
+- Sous le rate-limit `/api/ai` existant (20 req/min/IP).
 
-## Tests
+## Intégration front (Pôle 5)
 
-11 tests ajoutés à `scripts/test-api.js` (prévisions, cloisonnement, tri, scoring,
-idempotence, rôles). **Total : 61 réussis · 0 échoué** (`npm test`).
-
-## Idées d'intégration front (Pôle 5)
-
-- Dashboard staff : bandeau « ⚠ N stocks en rupture prévue sous 7 j » via `resume` de `/api/ai/previsions`.
-- Page détail alerte : onglet « Qui mobiliser ? » listant les recommandations avec le score.
-- La cloche affiche déjà les notifications générées (aucun travail supplémentaire).
+Dashboard staff : bandeau « ⚠ N ruptures prévues sous 7 j » via `resume`. Détail alerte :
+onglet « Qui mobiliser ? » (score + raisons). Cloche/page Notifications : déjà alimentées
+par le Lot 4, zéro travail front supplémentaire.
