@@ -13,7 +13,10 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { validateReadOnlySql } from '../utils/sqlGuard.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { audit } from '../utils/audit.js';
+import { calculerPrevisions, resumerPrevisions } from '../utils/previsions.js';
+import { genererNotificationsAuto } from '../utils/autoNotifs.js';
 
 const router = Router();
 
@@ -215,7 +218,62 @@ router.post('/title', requireAuth({ optional: true }), async (req, res) => {
   }
 });
 
+// =====================================================================
+// INTELLIGENCE PRÉDICTIVE (Lots 2 & 4)
+// =====================================================================
+
+// ---------------------------------------------------------------
+// GET /api/ai/previsions  → prévisions de rupture de stock
+// ---------------------------------------------------------------
+// Staff hôpital : uniquement son hôpital. CNTS/admin : national
+// (filtrable avec ?hopital_id=X). Option ?niveau=critique pour ne
+// garder que les couples en danger.
+router.get('/previsions', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (req, res) => {
+  try {
+    let hopitalId = null;
+    if (req.user.role === 'hopital') {
+      hopitalId = req.user.hopital_id;               // cloisonnement strict
+    } else if (req.query.hopital_id) {
+      hopitalId = Number(req.query.hopital_id) || null;
+    }
+
+    let previsions = await calculerPrevisions({ hopitalId });
+    if (req.query.niveau) {
+      previsions = previsions.filter((p) => p.niveau === req.query.niveau);
+    }
+
+    res.json({
+      generee_le: new Date().toISOString(),
+      fenetre_observation_jours: 90,
+      methode: "Demande moyenne observée sur 90 jours (alertes) avec plancher de rotation basé sur le seuil critique. Autonomie = stock / consommation estimée. Alerte à J-7.",
+      resume: resumerPrevisions(previsions),
+      previsions,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erreur prévisions de stock' });
+  }
+});
+
+// ---------------------------------------------------------------
+// POST /api/ai/generer-notifications  → notifications intelligentes
+// ---------------------------------------------------------------
+// Exécute les 2 règles automatiques (rappels d'éligibilité donneurs +
+// stock critique prédictif staff). Idempotent : rejouable sans doublon.
+// Réservé cnts/admin — aussi disponible en CLI : node scripts/auto-notifs.js
+router.post('/generer-notifications', requireAuth(), requireRole('cnts', 'admin'), async (req, res) => {
+  try {
+    const bilan = await genererNotificationsAuto();
+    await audit(req, 'generer_notifications_auto', 'notifications', null, bilan);
+    res.json({ ok: true, ...bilan });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erreur génération notifications' });
+  }
+});
+
 export default router;
+
 
 // =====================================================================
 // EXPLICATION POUR LA SOUTENANCE (25 secondes) :

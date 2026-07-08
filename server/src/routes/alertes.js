@@ -344,7 +344,120 @@ router.patch('/:id/statut', requireAuth(), requireRole('hopital', 'cnts', 'admin
   }
 });
 
+// =====================================================================
+// BLOC 6 — RECOMMANDATIONS : quels donneurs mobiliser en priorité ? (Lot 3)
+// =====================================================================
+// GET /api/alertes/:id/recommandations
+// Classe les donneurs contactés par une alerte selon un SCORE explicable
+// sur 100, combinaison pondérée de 4 critères :
+//   • 30 % éligibilité   → peut-il donner AUJOURD'HUI ? (règles CNTS)
+//   • 30 % fiabilité     → historique de réponses aux alertes passées
+//                          (accepté = 1, pas répondu = 0.25, refusé = 0)
+//   • 25 % proximité     → 1 - distance/rayon (plus il est proche, mieux c'est)
+//   • 15 % expérience    → nombre de dons déjà effectués (plafonné à 10)
+// Le détail du score est renvoyé → le staff comprend POURQUOI un donneur
+// est recommandé (explicabilité, pas de boîte noire).
+router.get('/:id/recommandations', requireAuth(), requireRole('hopital', 'cnts', 'admin'), async (req, res) => {
+  try {
+    const alerteId = Number(req.params.id);
+    const [[alerte]] = await pool.query('SELECT * FROM alertes WHERE id = ?', [alerteId]);
+    if (!alerte) return res.status(404).json({ error: 'Alerte introuvable' });
+    if (req.user.role === 'hopital' && alerte.hopital_id !== req.user.hopital_id) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
+
+    // Donneurs ciblés par l'alerte + leur profil complet
+    const [cibles] = await pool.query(
+      `SELECT r.reponse, r.distance_km, d.*
+       FROM reponses_alertes r JOIN donneurs d ON d.id = r.donneur_id
+       WHERE r.alerte_id = ?`,
+      [alerteId]
+    );
+    if (!cibles.length) return res.json({ alerte_id: alerteId, recommandations: [] });
+
+    // Fiabilité historique : réponses aux AUTRES alertes de chaque donneur
+    const ids = cibles.map((c) => c.id);
+    const [histo] = await pool.query(
+      `SELECT donneur_id,
+              SUM(reponse = 'accepte') AS acceptes,
+              SUM(reponse = 'refuse') AS refus,
+              SUM(reponse = 'pas_repondu') AS sans_reponse
+       FROM reponses_alertes
+       WHERE donneur_id IN (?) AND alerte_id <> ?
+       GROUP BY donneur_id`,
+      [ids, alerteId]
+    );
+    const histoMap = new Map(histo.map((h) => [h.donneur_id, h]));
+
+    const rayon = Number(alerte.rayon_km) || 25;
+    const recommandations = cibles.map((d) => {
+      // 1) Éligibilité (règles CNTS : âge, poids, délai inter-dons...)
+      const elig = calculerEligibilite(d);
+      const scoreElig = elig.eligible ? 1 : 0;
+
+      // 2) Fiabilité (0.5 par défaut si aucun historique)
+      const h = histoMap.get(d.id);
+      let scoreFiab = 0.5;
+      if (h) {
+        const total = Number(h.acceptes) + Number(h.refus) + Number(h.sans_reponse);
+        if (total > 0) {
+          scoreFiab = (Number(h.acceptes) * 1 + Number(h.sans_reponse) * 0.25) / total;
+        }
+      }
+
+      // 3) Proximité (0.5 si distance inconnue)
+      const dist = d.distance_km != null ? Number(d.distance_km) : null;
+      const scoreDist = dist == null ? 0.5 : Math.max(0, 1 - dist / rayon);
+
+      // 4) Expérience (plafonnée à 10 dons)
+      const scoreExp = Math.min(Number(d.nombre_dons) || 0, 10) / 10;
+
+      const score = Math.round((0.30 * scoreElig + 0.30 * scoreFiab + 0.25 * scoreDist + 0.15 * scoreExp) * 100);
+
+      return {
+        donneur_id: d.id,
+        nom: d.nom,
+        prenom: d.prenom,
+        telephone: d.telephone,
+        groupe_sanguin: d.groupe_sanguin,
+        ville: d.ville,
+        quartier: d.quartier,
+        distance_km: dist,
+        nombre_dons: d.nombre_dons,
+        reponse_actuelle: d.reponse,
+        score,
+        details_score: {
+          eligibilite: { poids: '30%', valeur: scoreElig, raisons: elig.raisons },
+          fiabilite: { poids: '30%', valeur: Math.round(scoreFiab * 100) / 100 },
+          proximite: { poids: '25%', valeur: Math.round(scoreDist * 100) / 100 },
+          experience: { poids: '15%', valeur: scoreExp },
+        },
+      };
+    });
+
+    // Tri : meilleurs scores d'abord ; ceux qui n'ont pas encore répondu en tête
+    recommandations.sort((a, b) => {
+      const aAttente = a.reponse_actuelle === 'pas_repondu' ? 1 : 0;
+      const bAttente = b.reponse_actuelle === 'pas_repondu' ? 1 : 0;
+      if (aAttente !== bAttente) return bAttente - aAttente;
+      return b.score - a.score;
+    });
+
+    res.json({
+      alerte_id: alerteId,
+      groupe_sanguin: alerte.groupe_sanguin,
+      rayon_km: rayon,
+      methode: 'Score sur 100 : 30% éligibilité CNTS + 30% fiabilité historique + 25% proximité + 15% expérience. Donneurs sans réponse en tête de liste.',
+      recommandations,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Erreur recommandations' });
+  }
+});
+
 export default router;
+
 
 // =====================================================================
 // EXPLICATION POUR LA SOUTENANCE (25 secondes) :

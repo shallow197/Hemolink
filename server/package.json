@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "init-db": "node scripts/init-db.js",
     "verify": "node scripts/verify.js",
-    "test": "node scripts/test-api.js --init"
+    "test": "node scripts/test-api.js --init",
+    "notifs-auto": "node scripts/auto-notifs.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

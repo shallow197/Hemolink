@@ -367,7 +367,76 @@ async function main() {
     expect(status === 404, `HTTP ${status}`);
   });
 
+  // ----- IA prédictive (Lots 2, 3, 4) ----------------------------------------
+  console.log('\n— IA prédictive —');
+  await test('GET /ai/previsions (staff Fann) → 200, uniquement son hôpital', async () => {
+    const { status, json } = await api('GET', '/ai/previsions', { token: tokFann });
+    expect(status === 200 && Array.isArray(json?.previsions) && json.previsions.length === 8, `HTTP ${status}, ${json?.previsions?.length} lignes`);
+    expect(json.previsions.every((p) => p.hopital_id === 3), 'fuite de données d\'un autre hôpital');
+    const p = json.previsions[0];
+    expect('jours_autonomie' in p && 'date_rupture_estimee' in p && 'niveau' in p && 'conso_estimee_par_jour' in p, 'champs prédiction manquants');
+  });
+  await test('GET /ai/previsions (cnts) → 200, vue nationale + résumé', async () => {
+    const { status, json } = await api('GET', '/ai/previsions', { token: tokCnts });
+    expect(status === 200 && json.previsions.length >= 100, `HTTP ${status}, ${json?.previsions?.length} lignes`);
+    expect(json.resume && typeof json.resume.critique === 'number', 'résumé manquant');
+    // tri par autonomie croissante
+    const j = json.previsions.map((p) => p.jours_autonomie);
+    expect(j.every((v, i) => i === 0 || v >= j[i - 1]), 'tri par autonomie incorrect');
+  });
+  await test('GET /ai/previsions?niveau=critique → filtre', async () => {
+    const { status, json } = await api('GET', '/ai/previsions?niveau=critique', { token: tokCnts });
+    expect(status === 200 && json.previsions.every((p) => p.niveau === 'critique'), `HTTP ${status}`);
+  });
+  await test('GET /ai/previsions (donneur) → 403', async () => {
+    const { status } = await api('GET', '/ai/previsions', { token: tokAminata });
+    expect(status === 403, `HTTP ${status}`);
+  });
+
+  await test('GET /alertes/:id/recommandations → 200 + scores triés', async () => {
+    const { status, json } = await api('GET', `/alertes/${alerteId}/recommandations`, { token: tokFann });
+    expect(status === 200 && Array.isArray(json?.recommandations) && json.recommandations.length >= 1, `HTTP ${status}`);
+    const r = json.recommandations[0];
+    expect(typeof r.score === 'number' && r.details_score?.eligibilite && r.details_score?.fiabilite, 'détail du score manquant');
+  });
+  await test('GET /alertes/1/recommandations (alerte seed, 4 ciblés) → 200', async () => {
+    const { status, json } = await api('GET', '/alertes/1/recommandations', { token: tokCnts });
+    expect(status === 200 && json.recommandations.length === 4, `HTTP ${status}, ${json?.recommandations?.length} reco`);
+    // les "pas_repondu" doivent être en tête
+    const premiers = json.recommandations.slice(0, 2).map((r) => r.reponse_actuelle);
+    expect(premiers.every((r) => r === 'pas_repondu'), `ordre inattendu : ${premiers.join(',')}`);
+  });
+  await test('GET /alertes/:id/recommandations (donneur) → 403', async () => {
+    const { status } = await api('GET', `/alertes/${alerteId}/recommandations`, { token: tokAminata });
+    expect(status === 403, `HTTP ${status}`);
+  });
+
+  let bilan1;
+  await test('POST /ai/generer-notifications (cnts) → 200 + créations', async () => {
+    // On provoque une rupture réelle à Fann pour tester la règle prédictive
+    await api('PUT', '/hopitaux/3/stocks/AB-', {
+      token: tokFann, body: { groupe_sanguin: 'AB-', quantite_poches: 0, seuil_critique: 2 },
+    });
+    const { status, json } = await api('POST', '/ai/generer-notifications', { token: tokCnts });
+    expect(status === 200 && json?.ok && typeof json.total === 'number', `HTTP ${status}`);
+    bilan1 = json;
+    expect(json.total > 0, 'aucune notification générée (seed pourtant favorable)');
+  });
+  await test('POST /ai/generer-notifications rejoué → idempotent (0 doublon)', async () => {
+    const { status, json } = await api('POST', '/ai/generer-notifications', { token: tokCnts });
+    expect(status === 200 && json.total === 0, `2e passage a créé ${json?.total} notification(s) — doublons !`);
+  });
+  await test('POST /ai/generer-notifications (staff hôpital) → 403', async () => {
+    const { status } = await api('POST', '/ai/generer-notifications', { token: tokFann });
+    expect(status === 403, `HTTP ${status}`);
+  });
+  await test('Le staff Fann voit une notification stock_critique prédictive', async () => {
+    const { status, json } = await api('GET', '/notifications?type=stock_critique&lu=0', { token: tokFann });
+    expect(status === 200 && json.some((n) => n.titre.includes('rupture') || n.titre.includes('Rupture')), `HTTP ${status}, ${json?.length} notifs`);
+  });
+
   // ----- Rapport --------------------------------------------------------------
+
   console.log('\n' + '='.repeat(60));
   console.log(`Résultat : ${passed} réussis · ${failed} échoués · ${passed + failed} total`);
   if (failures.length) {
