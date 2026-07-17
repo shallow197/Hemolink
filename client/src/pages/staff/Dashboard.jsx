@@ -110,7 +110,7 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex gap-3 text-xs font-bold text-slate-300 bg-white/5 px-3 py-2 rounded-xl border border-white/10">
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-300"></span> Hôpitaux</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6]"></span> Hôpitaux</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blood shadow-glow"></span> Alertes</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-accent-teal"></span> Donneurs</span>
             </div>
@@ -141,7 +141,7 @@ export default function Dashboard() {
                 <tbody className="divide-y divide-white/5">
                   {recent.map((a) => (
                     <tr key={a.id} className="hover:bg-white/5 transition-colors">
-                      <td className="font-bold text-white">{a.hopital_nom}</td>
+                      <td className="font-bold text-[#3b82f6]">{a.hopital_nom}</td>
                       <td>
                         <span className="hl-blood-badge">{a.groupe_sanguin}</span>
                       </td>
@@ -170,26 +170,26 @@ export default function Dashboard() {
 
 function StockMini({ s }) {
   const crit = s.quantite_poches < s.seuil_critique;
-  const bar = crit ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : s.quantite_poches < s.seuil_critique * 2 ? 'bg-amber-400' : 'bg-accent-teal';
-  const bgClass = crit ? 'bg-red-900/20 border-red-500/30' : 'bg-white/5 border-white/10';
+  const bar = crit ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.35)]' : s.quantite_poches < s.seuil_critique * 2 ? 'bg-amber-400' : 'bg-accent-teal';
+  const bgClass = crit ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200';
   const max = Math.max(s.seuil_critique * 4, s.quantite_poches, 1);
   const pct = Math.min(100, (s.quantite_poches / max) * 100);
-  
+
   return (
     <div className={`rounded-2xl border p-5 shadow-sm transition-transform hover:-translate-y-1 ${bgClass}`}>
       <div className="flex items-center justify-between mb-3">
-        <span className="font-display text-lg font-extrabold text-white flex items-center gap-2">
+        <span className="font-display text-lg font-extrabold text-black flex items-center gap-2">
           <span className="text-blood opacity-80 text-xl leading-none">🩸</span>
           {s.groupe_sanguin}
         </span>
-        <span className={`px-3 py-1 rounded-xl text-xs font-bold border ${crit ? 'bg-red-900/30 text-red-300 border-red-500/30' : 'bg-white/10 text-slate-300 border-white/10'}`}>
+        <span className={`px-3 py-1 rounded-xl text-xs font-bold border ${crit ? 'bg-red-100 text-red-700 border-red-200' : 'bg-slate-100 text-black border-slate-200'}`}>
           {s.quantite_poches} poches
         </span>
       </div>
-      <div className="relative h-3 w-full overflow-hidden rounded-full bg-white/10 border border-white/5 inset-shadow-sm">
+      <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-200 border border-slate-300/60">
         <div className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out ${bar}`} style={{ width: `${pct}%` }} />
       </div>
-      {crit && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-3 text-right">Seuil Critique Atteint</p>}
+      {crit && <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider mt-3 text-right">Seuil Critique Atteint</p>}
     </div>
   );
 }
@@ -209,13 +209,28 @@ function StatutBadge({ statut }) {
 // Tendance stocks 7 derniers jours (simulation dérivée)
 // En prod on utilisera une vraie table historique_stocks.
 // =====================================================================
+// Ordre fixe des groupes + palette catégorielle harmonisée (8 teintes validées
+// pour la séparation daltonisme et le contraste sur fond sombre — la couleur
+// suit toujours le même groupe, jamais son rang dans les données).
+const GROUPE_ORDRE = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+const GROUPE_COLORS = {
+  'O+': '#3987e5',  // bleu
+  'O-': '#008300',  // vert
+  'A+': '#d55181',  // magenta
+  'A-': '#c98500',  // jaune
+  'B+': '#199e70',  // aqua
+  'B-': '#d95926',  // orange
+  'AB+': '#9085e9', // violet
+  'AB-': '#e66767', // rouge
+};
+
 function StockTrend({ stocks }) {
   if (!stocks || stocks.length === 0) return null;
   // On génère une variation crédible sur 7 jours autour de la valeur actuelle
   const jours = 7;
-  const groupesToShow = stocks.slice(0, 4);
-  const colors = { 'O+': '#F97316', 'A+': '#3B82F6', 'B+': '#10B981', 'AB+': '#A855F7', 'O-': '#DC2626', 'A-': '#1D4ED8', 'B-': '#047857', 'AB-': '#7C3AED' };
-  const w = 500, h = 130, padL = 30, padR = 10, padT = 15, padB = 20;
+  const parGroupe = new Map(stocks.map((s) => [s.groupe_sanguin, s]));
+  const groupesToShow = GROUPE_ORDRE.map((g) => parGroupe.get(g)).filter(Boolean);
+  const w = 500, h = 130, padL = 34, padR = 10, padT = 15, padB = 20;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
 
@@ -231,7 +246,7 @@ function StockTrend({ stocks }) {
       points.unshift(Math.round(v));
     }
     points[points.length - 1] = cur; // aujourd'hui = valeur réelle
-    return { groupe: s.groupe_sanguin, points, color: colors[s.groupe_sanguin] || '#94a3b8' };
+    return { groupe: s.groupe_sanguin, points, color: GROUPE_COLORS[s.groupe_sanguin] || '#94a3b8' };
   });
 
   const maxVal = Math.max(1, ...seriesAll.flatMap(s => s.points));
@@ -240,21 +255,26 @@ function StockTrend({ stocks }) {
 
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-widest text-white/70">Tendance des stocks (7 derniers jours)</p>
-        <div className="flex gap-3 text-[10px]">
+        <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[10px]">
           {seriesAll.map((s) => (
-            <span key={s.groupe} className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+            <span key={s.groupe} className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
               <span className="font-bold text-white/80">{s.groupe}</span>
             </span>
           ))}
         </div>
       </div>
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-        {/* Grille horizontale */}
+        {/* Grille horizontale + axe Y (quantités en poches) */}
         {[0, 0.25, 0.5, 0.75, 1].map(g => (
-          <line key={g} x1={padL} x2={w - padR} y1={padT + chartH * g} y2={padT + chartH * g} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+          <g key={g}>
+            <line x1={padL} x2={w - padR} y1={padT + chartH * g} y2={padT + chartH * g} stroke="rgba(255,255,255,0.09)" strokeWidth="1" />
+            <text x={padL - 6} y={padT + chartH * g + 3} fontSize="9" textAnchor="end" fill="rgba(255,255,255,0.6)">
+              {Math.round(maxVal * (1 - g))}
+            </text>
+          </g>
         ))}
         {/* Séries */}
         {seriesAll.map((s) => (
@@ -262,17 +282,17 @@ function StockTrend({ stocks }) {
             <polyline
               fill="none"
               stroke={s.color}
-              strokeWidth="2"
+              strokeWidth="2.5"
               points={s.points.map((v, i) => `${x(i)},${y(v)}`).join(' ')}
             />
             {s.points.map((v, i) => (
-              <circle key={i} cx={x(i)} cy={y(v)} r="2.5" fill={s.color} />
+              <circle key={i} cx={x(i)} cy={y(v)} r="3" fill={s.color} />
             ))}
           </g>
         ))}
         {/* Axe X (jours) */}
         {Array.from({length: jours}, (_, i) => (
-          <text key={i} x={x(i)} y={h - 4} fontSize="9" textAnchor="middle" fill="rgba(255,255,255,0.4)">
+          <text key={i} x={x(i)} y={h - 4} fontSize="9" textAnchor="middle" fill="rgba(255,255,255,0.6)">
             J-{jours - 1 - i}
           </text>
         ))}
